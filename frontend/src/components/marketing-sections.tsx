@@ -4,33 +4,26 @@ import { motion } from "motion/react";
 import { FadeIn } from "@/components/motion-primitives";
 
 const steps = [
-  { icon: PenLine, title: "Describe or upload", body: "Write a one-line idea, or drop in an image to animate. Image-to-video uses your picture as the opening frame." },
-  { icon: Sparkles, title: "Refine with the creative agent", body: "A Gemini agent turns your idea into a model-aware prompt for $0.02, or generates and edits a scene image for $0.20." },
-  { icon: Clapperboard, title: "Quote, generate, keep", body: "See the exact price before you confirm. Finished clips stay in your library, and failed jobs refund automatically." },
+  { icon: PenLine, title: "Start with an idea", body: "Describe a scene or upload an image to animate." },
+  { icon: Sparkles, title: "Make it yours", body: "Optionally refine the prompt or create an image with the creative agent." },
+  { icon: Clapperboard, title: "See the price, then create", body: "Review the exact cost before generating. Your finished video stays in your library." },
 ];
 
 export function HowItWorks() {
-  return <FadeIn>
-    <section id="how-it-works" className="scroll-mt-24 space-y-6" aria-labelledby="how-title">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-600">How it works</p>
-        <h2 id="how-title" className="mt-1 text-3xl font-semibold tracking-tight">Three steps from idea to clip.</h2>
-      </div>
-      <ol className="grid gap-4 sm:grid-cols-3">
-        {steps.map((step, index) => <li key={step.title}>
-          <FadeIn delay={index * 0.08}>
-            <div className="h-full rounded-2xl border bg-card p-5 shadow-sm">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
-                <step.icon className="h-4.5 w-4.5" aria-hidden="true" />
-              </span>
-              <h3 className="mt-3 text-lg font-semibold"><span className="mr-2 text-sm font-semibold text-violet-600">{String(index + 1).padStart(2, "0")}</span>{step.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
-            </div>
-          </FadeIn>
-        </li>)}
-      </ol>
-    </section>
-  </FadeIn>;
+  return <div id="how-it-works" className="scroll-mt-24 rounded-2xl bg-[#f2f2fb] px-5 py-6 sm:px-7 sm:py-7">
+    <ol className="grid gap-6 md:grid-cols-3 md:gap-0" aria-label="How video creation works">
+      {steps.map((step, index) => <li key={step.title} className="flex gap-4 md:flex-col md:gap-3 md:border-r md:border-[#dcdcef] md:px-6 md:first:pl-0 md:last:border-r-0 md:last:pr-0">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#514ad5] shadow-sm" aria-hidden="true">
+          <step.icon className="h-5 w-5" strokeWidth={1.8} />
+        </span>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5854b4]">Step {String(index + 1).padStart(2, "0")}</p>
+          <h3 className="mt-1 font-heading text-base font-semibold leading-snug text-[#1b1b26] sm:text-lg">{step.title}</h3>
+          <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-[#58586a]">{step.body}</p>
+        </div>
+      </li>)}
+    </ol>
+  </div>;
 }
 
 // Settings and prices mirror src/config.py (MODEL_PROFILES, VIDEO_BASE_PRICES_CENTS).

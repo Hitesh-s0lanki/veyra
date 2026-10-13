@@ -246,10 +246,13 @@ export default function Home() {
     <HeroReel />
     <VideoShowcase />
 
-    <section id="create" className="scroll-mt-8 space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-600">Workspace</p><h2 className="mt-1 text-3xl font-semibold tracking-tight">Create a video</h2></div>
+    <section id="create" className="scroll-mt-8 overflow-hidden rounded-[2rem] border border-[#e5e5ef] bg-white shadow-[0_24px_70px_-50px_rgba(32,27,80,0.28)]" aria-labelledby="create-title">
+      <div className="space-y-7 px-5 py-8 sm:px-8 sm:py-10 lg:px-10">
+      <div className="flex flex-wrap items-end justify-between gap-5"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-600">Create with Veyra</p><h2 id="create-title" className="mt-2 font-heading text-3xl font-semibold tracking-tight sm:text-4xl">Your next video starts here.</h2><p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">Turn a prompt or image into a finished clip. See the steps, then start creating below.</p></div>
         {wallet && <div className="rounded-xl border bg-card px-5 py-3 text-right"><p className="text-xs text-muted-foreground">Available credit</p><p className="text-2xl font-semibold tabular-nums">{money(wallet.balance_cents)}</p></div>}</div>
-      {!isLoaded ? <p>Loading account…</p> : !isSignedIn ? <Card><CardContent className="flex flex-col items-start justify-between gap-5 py-7 sm:flex-row sm:items-center"><div><h3 className="text-lg font-semibold">Your studio starts here</h3><p className="mt-1 text-sm text-muted-foreground">Sign in to create your first video with $2 in credit.</p></div><Link href="/sign-in" className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground transition hover:bg-primary/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Sign in to create</Link></CardContent></Card> : !connected ?
+      <HowItWorks />
+      <div className="border-t border-[#e7e7ee] pt-7 sm:pt-8">
+      {!isLoaded ? <div className="h-28 animate-pulse rounded-2xl bg-[#f2f2f8] motion-reduce:animate-none" role="status" aria-label="Loading your studio"><span className="sr-only">Loading your studio…</span></div> : !isSignedIn ? <div className="flex flex-col items-start justify-between gap-5 rounded-2xl bg-[#191a31] p-6 text-white sm:flex-row sm:items-center sm:p-7"><div><h3 className="font-heading text-xl font-semibold">Ready to make your first video?</h3><p className="mt-1 text-sm text-white/75">Sign in and start creating with $2 in credit.</p></div><Link href="/sign-in" className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-white px-6 text-sm font-semibold text-[#22205a] transition hover:bg-[#eeeefd] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Sign in to create</Link></div> : !connected ?
         <Card><CardHeader><CardTitle>Connect your video account</CardTitle><CardDescription>Authorize this app with your Clerk account.</CardDescription></CardHeader><CardContent><a href="/api/oauth/start" className="inline-flex rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground">Connect account</a></CardContent></Card> :
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_330px]">
           <Card><CardHeader><CardTitle>Video settings</CardTitle><CardDescription>Only settings enabled by the API appear here.</CardDescription></CardHeader><CardContent className="space-y-5">
@@ -280,7 +283,9 @@ export default function Home() {
             </div>) : <p className="text-sm text-muted-foreground">No credit activity yet.</p>}
           </CardContent></Card><Card><CardHeader><CardTitle>Account</CardTitle></CardHeader><CardContent><button type="button" className="text-sm underline" onClick={disconnect}>Disconnect video account</button></CardContent></Card></div>
         </div>}
-      {message && <p role="alert" className="rounded-lg border bg-muted px-4 py-3 text-sm">{message}</p>}
+      {message && <p role="alert" className="mt-5 rounded-lg border bg-muted px-4 py-3 text-sm">{message}</p>}
+      </div>
+      </div>
     </section>
 
     {connected && <section className="grid gap-6 lg:grid-cols-2">
@@ -297,7 +302,6 @@ export default function Home() {
 
     {connected && <section className="space-y-4"><h2 className="text-3xl font-semibold tracking-tight">Your videos</h2>{jobs.length ? <div className="grid gap-4 sm:grid-cols-2">{jobs.map((job) => <Card key={job.job_id}><CardHeader><CardTitle>{names[job.model_id] ?? job.model_id}</CardTitle><CardDescription>{job.created_at ? new Date(job.created_at).toLocaleString() : job.job_id}</CardDescription></CardHeader><CardContent className="space-y-3"><div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-muted px-2.5 py-1 capitalize">{job.status}</span>{job.duration_seconds && <span>{job.duration_seconds}s · {job.resolution}</span>}{typeof job.price_cents === "number" && <span>{money(job.price_cents)}</span>}</div>{job.prompt && <p className="line-clamp-3 text-sm">{job.prompt}</p>}{job.error_code && <p className="text-sm text-destructive">{job.error_code}</p>}<div>{job.status === "succeeded" && <Button type="button" size="sm" disabled={!!busy} onClick={() => void jobAction(job.job_id, "download")}>Open video</Button>}{["queued", "running"].includes(job.status) && <Button type="button" size="sm" variant="outline" disabled={!!busy} onClick={() => void jobAction(job.job_id, "cancel")}>Cancel job</Button>}</div></CardContent></Card>)}</div> : <Card><CardContent><p className="text-sm text-muted-foreground">Your generated videos will appear here.</p></CardContent></Card>}</section>}
     {connected && !!assets.length && <section className="space-y-4"><h2 className="text-3xl font-semibold tracking-tight">Your images</h2><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{assets.map((asset) => <Card key={asset.asset_id}><CardContent className="space-y-2"><p className="truncate text-sm font-medium">{asset.asset_id}</p><p className="text-xs text-muted-foreground">{asset.content_type} · {new Date(asset.created_at).toLocaleString()}</p><div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => void openAsset(asset.asset_id)}>Preview</Button><Button type="button" size="sm" variant="outline" onClick={() => { const ltx = models.find((item) => item.modes.includes("i2v")); if (ltx) chooseModel(ltx.model_id); setMode("i2v"); setAssetId(asset.asset_id); setSourceFile(null); invalidate(); document.getElementById("create")?.scrollIntoView({ behavior: "smooth" }); }}>Use in video</Button></div></CardContent></Card>)}</div></section>}
-    <HowItWorks />
   </main>
   </MotionConfig>;
 }
