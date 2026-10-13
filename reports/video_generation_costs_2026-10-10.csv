@@ -1,0 +1,6 @@
+job_id,purpose,mode,requested_duration_seconds,output_duration_seconds,gpu,worker_runtime_seconds,gpu_rate_usd_per_hour,gpu_runtime_cost_estimate_usd,created_at_utc
+vid_5418787b72134dfb85619f26ed86a633,baseline,t2v,5,5.041667,H100,169.862215037,3.95,0.18637660,2026-10-10T11:53:59Z
+vid_2c5d75e0be2842069387246755d737fd,validation,i2v,10,10.041667,H200,142.731436760,4.54,0.18000020,2026-10-10T12:46:22Z
+vid_19b12df19ca342168c703449eea0d3ae,validation,t2v,20,20.041667,H200,110.898673141,4.54,0.13985555,2026-10-10T12:49:32Z
+vid_e7ea05c0861547eaaddb3397d246fc9d,dream_gold_first_render,i2v,10,10.041667,H200,176.552341114,4.54,0.22265212,2026-10-10T13:00:39Z
+vid_8fca9d09ed74418c8ec20dcfecac2e3c,dream_gold_final_render,i2v,10,10.041667,H200,129.541485568,4.54,0.16336621,2026-10-10T13:04:50Z
