@@ -24,6 +24,26 @@ CREATE TABLE IF NOT EXISTS video_jobs (
     CONSTRAINT video_user_idempotency UNIQUE (user_id, idempotency_key)
 );
 CREATE INDEX IF NOT EXISTS video_jobs_user_status ON video_jobs(user_id, status);
+ALTER TABLE video_jobs ADD COLUMN IF NOT EXISTS model_id text NOT NULL DEFAULT 'ltx-2.3-distilled';
+ALTER TABLE video_jobs ADD COLUMN IF NOT EXISTS parameters jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE video_jobs ADD COLUMN IF NOT EXISTS gpu_cost_estimate_usd numeric(14,6);
+ALTER TABLE video_jobs ADD COLUMN IF NOT EXISTS gpu_rate_usd_per_hour numeric(10,4);
+CREATE UNIQUE INDEX IF NOT EXISTS video_jobs_output_key_unique ON video_jobs(output_key) WHERE output_key IS NOT NULL;
+ALTER TABLE video_jobs ADD COLUMN IF NOT EXISTS price_cents integer;
+ALTER TABLE video_jobs ADD COLUMN IF NOT EXISTS pricing_version text;
+CREATE TABLE IF NOT EXISTS credit_wallets (
+    user_id text PRIMARY KEY, balance_cents integer NOT NULL DEFAULT 0,
+    CONSTRAINT wallet_nonnegative CHECK (balance_cents >= 0)
+);
+CREATE TABLE IF NOT EXISTS credit_ledger (
+    id bigserial PRIMARY KEY, user_id text NOT NULL REFERENCES credit_wallets(user_id),
+    operation_id text NOT NULL, kind text NOT NULL, amount_cents integer NOT NULL,
+    balance_after_cents integer NOT NULL, reason text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT ledger_kind CHECK (kind IN ('starter_grant','reserve','capture','refund')),
+    CONSTRAINT ledger_operation_kind UNIQUE (operation_id,kind)
+);
+CREATE INDEX IF NOT EXISTS credit_ledger_user_created ON credit_ledger(user_id,created_at DESC,id DESC);
 """
 
 
@@ -51,4 +71,8 @@ def set_status(conn, job_id: str, before: tuple[str, ...], after: str, **fields)
     assignments = ["status=%s", "updated_at=now()"] + [f"{key}=%s" for key in fields]
     sql = f"UPDATE video_jobs SET {', '.join(assignments)} WHERE id=%s AND status=ANY(%s) RETURNING id"
     values = [after, *fields.values(), job_id, list(before)]
-    return conn.execute(sql, values).fetchone() is not None
+    changed = conn.execute(sql, values).fetchone() is not None
+    if changed and after in ("succeeded", "failed", "cancelled"):
+        from src import billing
+        billing.settle(conn, job_id, success=after == "succeeded")
+    return changed

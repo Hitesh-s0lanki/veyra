@@ -9,10 +9,10 @@ import modal
 
 from src.config import (
     CHECKPOINT, DURATION_FRAMES, FPS, GEMMA_REVISION, GEMMA_REPO, GEMMA_ROOT,
-    GPU_TYPE, LTX_COMMIT, MODEL_REPO, MODEL_REVISION, MODEL_VERSION, PRESETS, UPSCALER,
+    GPU_TYPE, I2V_DIMS, LTX_COMMIT, MODEL_REPO, MODEL_REVISION, MODEL_VERSION, PRESETS, UPSCALER,
 )
 
-app = modal.App("ltx-23-video")
+app = modal.App("video-pipeline-ltx-23")
 secret = modal.Secret.from_name("video-pipeline")
 models = modal.Volume.from_name("ltx-23-models", create_if_missing=True)
 
@@ -115,6 +115,16 @@ class VideoWorker:
                     storage.client().download_file(storage.bucket(), asset["object_key"], source)
                     images = [ImageConditioningInput(path=source, frame_idx=0, strength=1.0)]
                 width, height = PRESETS[job["resolution"]]
+                if images:
+                    # Follow the conditioning image's aspect so inputs are not
+                    # stretched. Dims stay divisible by 32 at the preset's
+                    # pixel class: landscape / portrait / near-square.
+                    from PIL import Image as PILImage
+
+                    with PILImage.open(source) as probe:
+                        aspect = probe.width / probe.height
+                    orientation = "landscape" if aspect >= 1.2 else "portrait" if aspect <= 1 / 1.2 else "square"
+                    width, height = I2V_DIMS[job["resolution"]][orientation]
                 num_frames = DURATION_FRAMES[job["duration_seconds"]]
                 output = str(Path(tmp) / "output.mp4")
                 # The pinned official CLI runs construction and inference in inference mode.
@@ -169,30 +179,6 @@ def web():
 @app.function(image=api_image, secrets=[secret], schedule=modal.Period(minutes=5))
 def reconcile_jobs():
     """Repair DB state after dispatch crashes, GPU timeouts, or container termination."""
-    from src import db
+    from src.reconcile import run_once
 
-    with db.connection() as conn:
-        jobs = conn.execute(
-            """SELECT id, status, call_id FROM video_jobs
-            WHERE status IN ('queued','running') AND updated_at < now() - interval '10 minutes'
-            ORDER BY updated_at LIMIT 100"""
-        ).fetchall()
-    repaired = 0
-    for job in jobs:
-        if not job["call_id"]:
-            if job["status"] == "queued":
-                with db.connection() as conn:
-                    repaired += db.set_status(conn, job["id"], ("queued",), "failed", error_code="dispatch_lost")
-            continue
-        try:
-            modal.FunctionCall.from_id(job["call_id"]).get(timeout=0)
-        except TimeoutError:
-            continue
-        except Exception:
-            # An execution exception or expired call result must not leave a job active.
-            pass
-        with db.connection() as conn:
-            repaired += db.set_status(
-                conn, job["id"], ("queued", "running"), "failed", error_code="worker_lost"
-            )
-    return {"checked": len(jobs), "repaired": repaired}
+    return run_once()

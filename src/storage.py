@@ -3,13 +3,14 @@
 import io
 
 import boto3
+from botocore.config import Config
 from PIL import Image, UnidentifiedImageError
 
-from src.config import MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS, require_env
+from src.config import MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS, VIDEO_URL_TTL_SECONDS, require_env
 
 
 def client():
-    return boto3.client("s3")
+    return boto3.client("s3", config=Config(signature_version="s3v4"))
 
 
 def bucket() -> str:
@@ -35,8 +36,13 @@ def upload_form(key: str, content_type: str) -> dict:
 
 def download_url(key: str) -> str:
     return client().generate_presigned_url(
-        "get_object", Params={"Bucket": bucket(), "Key": key}, ExpiresIn=900
+        "get_object", Params={"Bucket": bucket(), "Key": key}, ExpiresIn=VIDEO_URL_TTL_SECONDS
     )
+
+
+def video_metadata(key: str) -> dict:
+    obj = client().head_object(Bucket=bucket(), Key=key)
+    return {"size_bytes": obj["ContentLength"], "content_type": obj.get("ContentType", "video/mp4")}
 
 
 def validate_image(key: str) -> dict:
