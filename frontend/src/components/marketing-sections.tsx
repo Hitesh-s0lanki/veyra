@@ -29,7 +29,7 @@ export function HowItWorks() {
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#c7c9df] sm:text-base">This project sends generation jobs to four separately deployed Modal GPU workers. Pick an engine, test an idea, and keep the resulting MP4 in your library.</p>
           <a href="https://github.com/Hitesh-s0lanki/video-generation-pipeline" target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-white underline decoration-white/40 underline-offset-4 transition hover:decoration-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Explore the source <ExternalLink size={17} aria-hidden="true" /><span className="sr-only">(opens in a new tab)</span></a>
         </div>
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3" aria-label="Available video models">
+        <div className="grid grid-cols-1 gap-2.5 min-[480px]:grid-cols-2 sm:gap-3" aria-label="Available video models">
           {openModels.map((model, index) => <div key={model.name} className="min-h-27 rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-sm sm:p-4">
             <span className="text-[11px] font-bold tracking-[0.18em] text-[#aaa8ff]">0{index + 1}</span>
             <p className="mt-2 font-heading text-sm font-semibold leading-tight text-white sm:text-base">{model.name}</p>
@@ -58,10 +58,10 @@ export function HowItWorks() {
 
 // Settings and prices mirror src/config.py (MODEL_PROFILES, VIDEO_BASE_PRICES_CENTS).
 const models = [
-  { id: "ltx-2.3-distilled", name: "LTX 2.3 Distilled", poster: "robot-garden", alt: "Frame of a 3D animated robot garden", modes: "Text and image to video", lengths: "5, 10, or 20 seconds", quality: "512p · 24 fps", price: "From $0.25", tag: "Most flexible" },
-  { id: "wan-2.2", name: "Wan 2.2", poster: "clay-astronaut", alt: "Frame of a clay-animated astronaut", modes: "Text to video", lengths: "5 seconds", quality: "720p", price: "From $0.45", tag: "Sharpest detail" },
-  { id: "hunyuanvideo-1.5", name: "HunyuanVideo 1.5", poster: "watercolor-koi", alt: "Frame of a watercolor koi painting", modes: "Text to video", lengths: "5 seconds", quality: "480p", price: "From $0.35", tag: "Painterly looks" },
-  { id: "cogvideox-1.5", name: "CogVideoX 1.5", poster: "knitted-whale", alt: "Frame of a knitted whale in stop motion", modes: "Text to video", lengths: "5 seconds", quality: "480p", price: "From $0.35", tag: "Stylized motion" },
+  { id: "ltx-2.3-distilled", name: "LTX 2.3 Distilled", poster: "robot-garden", alt: "Frame of a 3D animated robot garden", modes: "Text and image to video", lengths: "5, 10, or 20 seconds", quality: "512p · 24 fps", price: "From $0.45", tag: "Most flexible" },
+  { id: "wan-2.2", name: "Wan 2.2", poster: "clay-astronaut", alt: "Frame of a clay-animated astronaut", modes: "Text to video", lengths: "5 seconds", quality: "720p", price: "From $0.65", tag: "Sharpest detail" },
+  { id: "hunyuanvideo-1.5", name: "HunyuanVideo 1.5", poster: "watercolor-koi", alt: "Frame of a watercolor koi painting", modes: "Text to video", lengths: "5 seconds", quality: "480p", price: "From $0.55", tag: "Painterly looks" },
+  { id: "cogvideox-1.5", name: "CogVideoX 1.5", poster: "knitted-whale", alt: "Frame of a knitted whale in stop motion", modes: "Text to video", lengths: "5 seconds", quality: "480p", price: "From $0.55", tag: "Stylized motion" },
 ];
 
 export function ModelLineup() {

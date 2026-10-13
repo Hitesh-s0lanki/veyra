@@ -68,7 +68,7 @@ export function SiteFooter() {
           <p>© Hitesh Solanki</p>
           <nav aria-label="Footer navigation" className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <Link href="/#showcase" className="rounded-sm hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8c83ff]">Explore</Link>
-            <Link href="/#create" className="rounded-sm hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8c83ff]">Studio</Link>
+            <Link href="/app" className="rounded-sm hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8c83ff]">Dashboard</Link>
             <Link href="/mcp" className="rounded-sm hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8c83ff]">MCP</Link>
           </nav>
         </div>

@@ -79,7 +79,7 @@ export function HeroReel() {
       <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-[#565e52] sm:text-lg">
         Create expressive videos from a prompt or image. Every scene below started with an idea.
       </p>
-      <a href="#create" className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-full bg-primary px-7 text-sm font-bold text-primary-foreground shadow-lg shadow-black/10 transition hover:bg-primary/80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">
+      <a href="/app" className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-full bg-primary px-7 text-sm font-bold text-primary-foreground shadow-lg shadow-black/10 transition hover:bg-primary/80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">
         Get started <ArrowUpRight size={18} aria-hidden="true" />
       </a>
     </div>

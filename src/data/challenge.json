@@ -1,0 +1,111 @@
+{
+  "data": [
+    {
+      "id": "challenge_3d9396a17afa47dc87f65f78bd289851",
+      "brand_id": "brand_ee7987d0997a419a88c6264cb65dfb66",
+      "title": "Turn up your moment",
+      "description": "Make a 20–30 second vertical video using the boAt Stone 358 Pro. Show an ordinary moment, turn on the speaker, then show the mood changing when the music starts. It could be a dance, workout, or hangout. Keep the speaker visible. This is a concept challenge for API testing, not an official boAt campaign.",
+      "rules": [
+        "Record an original vertical video in 9:16 format, 20–30 seconds long.",
+        "Show an ordinary moment before the music starts.",
+        "Show the boAt Stone 358 Pro clearly and show yourself turning it on or interacting with it.",
+        "Show a visible change in mood or energy once the music starts.",
+        "Keep the speaker visible during part of the activity and finish with the speaker or creator and speaker in view.",
+        "Use only audio and footage you have the right to share."
+      ],
+      "eligibility": "Concept test only; not open for real submissions or rewards.",
+      "content_terms": "Use footage and audio you have the right to share. This concept test does not grant boAt or Chalzi permission to reuse submitted videos.",
+      "review_checklist": [
+        "Video is vertical and 20–30 seconds long.",
+        "The boAt Stone 358 Pro is clearly visible.",
+        "The video shows an ordinary moment, the speaker being turned on or used, and a visible mood change after music starts.",
+        "Footage and audio appear original or properly licensed."
+      ],
+      "human_verification_enabled": true,
+      "product_required": true,
+      "product_requirements": "Use the boAt Stone 358 Pro and keep it clearly visible. Purchase is not required if you already own one.",
+      "product_options": [
+        {
+          "name": "boAt Stone 358 Pro",
+          "description": "Portable Bluetooth speaker featured in the concept brief.",
+          "buy_url": "https://www.boat-lifestyle.com/products/boat-stone-358-pro-portable-bluetooth-speaker-with-14w-boat-signature-sound-rgb-led-design-12-hours-playback"
+        }
+      ],
+      "product_name": "boAt Stone 358 Pro",
+      "product_description": "Portable Bluetooth speaker featured in the concept brief.",
+      "product_buy_url": "https://www.boat-lifestyle.com/products/boat-stone-358-pro-portable-bluetooth-speaker-with-14w-boat-signature-sound-rgb-led-design-12-hours-playback",
+      "video_media_key": "videos/8b0c57bf513b4bc78bba11bf10d2b224.mp4",
+      "thumbnail_media_key": "images/59cf69bd9bb34e1389edc932aa4f47be.jpg",
+      "starts_at": "2026-10-07T08:36:00.284805Z",
+      "ends_at": "2026-11-30T18:29:00Z",
+      "reward_paise": 50000,
+      "reward_budget_paise": 1000000,
+      "max_approved_entries": 20,
+      "status": "published",
+      "published_at": "2026-10-06T13:33:00.270508Z",
+      "created_at": "2026-10-06T13:32:46.146908Z",
+      "updated_at": "2026-10-07T08:36:00.284805Z"
+    },
+    {
+      "id": "challenge_fe92f3bf36e841cca1d02fd1a8ac708f",
+      "brand_id": "brand_d6da50977cf14a779c6629051e0e8626",
+      "title": "Create your new beard style",
+      "description": "Create a 20–30 second vertical video using any one of the listed trimmers. Show your beard before, include 2–3 real trimming shots, and reveal your final look. Choose your own editing style. This is a concept draft for API testing, not an official campaign.",
+      "rules": [
+        "Record a vertical video in 9:16 format, 20–30 seconds long.",
+        "Show your beard clearly before trimming.",
+        "Show your chosen trimmer clearly and include 2–3 real trimming shots.",
+        "Show your final beard style from the front or side.",
+        "Use original footage and choose your own editing style."
+      ],
+      "eligibility": "Concept test only; not open for real submissions or rewards.",
+      "content_terms": "Use footage you own. This draft does not grant permission for the brand or Chalzi to reuse submitted videos.",
+      "review_checklist": [
+        "Video is vertical and 20–30 seconds long.",
+        "The before look, trimmer, 2–3 trimming shots, and final look are visible.",
+        "Footage appears original and follows the stated rules."
+      ],
+      "human_verification_enabled": true,
+      "product_required": true,
+      "product_requirements": "Choose any one listed trimmer and show it clearly in the video. Purchase is not required if you already own one.",
+      "product_options": [
+        {
+          "name": "All Rounder Trimmer",
+          "description": "The trimmer shown in the original concept.",
+          "buy_url": "https://www.bombayshavingcompany.com/products/all-rounder-trimmer"
+        },
+        {
+          "name": "Additional trimmer option 2 (test placeholder)",
+          "description": null,
+          "buy_url": null
+        },
+        {
+          "name": "Additional trimmer option 3 (test placeholder)",
+          "description": null,
+          "buy_url": null
+        }
+      ],
+      "product_name": "All Rounder Trimmer",
+      "product_description": "The trimmer shown in the original concept.",
+      "product_buy_url": "https://www.bombayshavingcompany.com/products/all-rounder-trimmer",
+      "video_media_key": "videos/eed7475efbc04f58aa68f22a7fb0e953.mp4",
+      "thumbnail_media_key": "images/7f5796ab5b7c4815b9ed3069dc296727.jpg",
+      "starts_at": "2026-10-07T08:36:00.284805Z",
+      "ends_at": "2026-11-30T18:29:00Z",
+      "reward_paise": 50000,
+      "reward_budget_paise": 1000000,
+      "max_approved_entries": 20,
+      "status": "published",
+      "published_at": "2026-10-06T13:29:11.355861Z",
+      "created_at": "2026-10-06T13:26:35.202173Z",
+      "updated_at": "2026-10-07T08:36:00.284805Z"
+    }
+  ],
+  "meta": {
+    "request_id": "406184f7-454f-43d4-b70c-580bbf0f043a",
+    "limit": 20,
+    "offset": 0,
+    "next_offset": null,
+    "next_cursor": null
+  }
+}

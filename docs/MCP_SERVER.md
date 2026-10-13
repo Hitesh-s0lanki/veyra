@@ -1,5 +1,33 @@
 # Video generation MCP server
 
+## Hosted connection
+
+Run `uv run --extra mcp uvicorn src.hosted_app:app --env-file .env --host 127.0.0.1 --port 8000` to serve the video API and hosted MCP from one origin. The hosted app serves Streamable HTTP at `https://your-mcp-origin/mcp`; put HTTPS in front of it before exposing it to users. Set the following on the host:
+
+```text
+MCP_PUBLIC_ORIGIN=https://your-mcp-origin
+MCP_FRONTEND_ORIGIN=https://your-frontend-origin
+MCP_JWT_SIGNING_KEY=<stable random secret>
+CLERK_OAUTH_ISSUER=https://your-instance.clerk.accounts.dev
+CLERK_OAUTH_CLIENT_ID=<client-id>
+CLERK_OAUTH_CLIENT_SECRET=<client-secret>
+MCP_API_INTERNAL_ORIGIN=http://127.0.0.1:8000
+```
+
+`MCP_API_INTERNAL_ORIGIN` is the private address of the Python video API from the MCP process; for the combined app above, keep it at `http://127.0.0.1:8000`. `MCP_FRONTEND_ORIGIN` is the public origin of the Next.js frontend. Set `MCP_PUBLIC_ORIGIN`, `CLERK_OAUTH_ISSUER`, and `CLERK_OAUTH_CLIENT_ID` on the Next.js server too. The `/mcp` page shows the connection URL, and `/api/mcp/authorize` sends signed-in users on to Clerk consent. Keep `MCP_JWT_SIGNING_KEY` stable. FastMCP's default encrypted OAuth client store needs persistent storage and a single instance; configure a shared encrypted store before running multiple replicas.
+
+Configure the Clerk OAuth application with `profile offline_access` scopes, PKCE enabled, and callback `https://your-mcp-origin/auth/callback`. The video API must use the same `CLERK_OAUTH_CLIENT_ID` and `CLERK_OAUTH_CLIENT_SECRET` to verify these tokens. The browser authorization flow is: the MCP client connects to `/mcp`, receives an OAuth challenge, opens the frontend's `/api/mcp/authorize` route, signs in on the frontend if needed, continues to Clerk consent, and returns to the MCP client with a client-specific token. FastMCP validates the upstream Clerk token on every request and passes that token to the video API. The user's Clerk subject owns their jobs and assets. No static API token or `VIDEO_API_BASE_URL` is entered in the remote MCP client.
+
+The hosted endpoint exposes `list_video_models`, `generate_video`, `get_video_status`, `get_video_url`, and `cancel_video`. File path tools are available only in the local stdio server because a path on the hosted machine is not a path on the user's computer. Use `get_video_url` to obtain a one-hour download link for a completed clip.
+
+Example client settings for clients that accept JSON remote MCP entries:
+
+```json
+{"mcpServers":{"video-generation":{"url":"https://your-mcp-origin/mcp"}}}
+```
+
+## Local stdio connection
+
 This local [FastMCP](https://gofastmcp.com/getting-started/quickstart) server gives agents tools for the existing authenticated video API. It runs as a stdio process launched by an MCP client. The API must be running separately; the MCP server does not deploy the API or any Modal app. Generation calls the API's on-demand Modal worker and incurs GPU cost.
 
 ## Agent skill for connected users

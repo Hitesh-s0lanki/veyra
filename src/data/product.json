@@ -1,0 +1,25 @@
+{
+  "name": "All Rounder 2-in-1 Trimmer",
+  "brand": "Bombay Shaving Company",
+  "product_url": "https://www.bombayshavingcompany.com/products/all-rounder-trimmer",
+  "image_url": "https://www.bombayshavingcompany.com/cdn/shop/files/3copy_615eaaf0-e0e7-47c0-8527-6984b5085f01.webp?v=1782366979&width=900",
+  "price_inr": 849,
+  "mrp_inr": 2000,
+  "available": true,
+  "use": ["beard grooming", "body grooming"],
+  "features": {
+    "beard_blade": "stainless steel",
+    "body_blade": "ceramic",
+    "style_settings": 38,
+    "runtime_minutes": 120,
+    "type_c_charge_minutes": 90
+  },
+  "box_contents": [
+    "trimmer",
+    "ceramic blade attachment",
+    "1–10 mm comb",
+    "10–20 mm comb",
+    "Type-C charging cable",
+    "cleaning brush"
+  ]
+}

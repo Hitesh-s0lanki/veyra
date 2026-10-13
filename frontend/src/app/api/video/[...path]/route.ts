@@ -1,4 +1,4 @@
-import { accessTokenForCurrentUser, oauthConfig, sameOrigin } from "@/lib/video-oauth";
+import { sameOrigin, sessionToken, videoApiBase } from "@/lib/video-api";
 import { matchVideoApiRoute } from "@/lib/video-api-routes";
 
 type Context = { params: Promise<{ path: string[] }> };
@@ -13,8 +13,8 @@ async function proxy(request: Request, context: Context, method: "GET" | "POST")
   const path = (await context.params).path;
   const target = matchVideoApiRoute(method, path);
   if (!target) return Response.json({ detail: "Route not found" }, { status: 404 });
-  const token = await accessTokenForCurrentUser();
-  if (!token) return Response.json({ detail: "Connect your video account" }, { status: 401 });
+  const token = await sessionToken();
+  if (!token) return Response.json({ detail: "Sign in to use the video studio" }, { status: 401 });
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
   let body: string | undefined;
   if (method === "POST") {
@@ -32,7 +32,7 @@ async function proxy(request: Request, context: Context, method: "GET" | "POST")
   }
   const timeoutMs = target.startsWith("/v1/creative") ? CREATIVE_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
   try {
-    const response = await fetch(`${oauthConfig().apiBase}${target}`, {
+    const response = await fetch(`${videoApiBase()}${target}`, {
       method, headers, body, cache: "no-store", signal: AbortSignal.timeout(timeoutMs),
     });
     return new Response(await response.text(), {

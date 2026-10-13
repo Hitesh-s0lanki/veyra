@@ -16,9 +16,10 @@ from uuid import uuid4
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from botocore.exceptions import BotoCoreError, ClientError
+import jwt
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src import billing, cost, db, oauth, storage, creative_api
+from src import billing, cost, db, oauth, storage, creative_api, submissions
 from src.config import DEFAULT_DURATION_SECONDS, DEFAULT_MODEL_ID, MAX_ACTIVE_JOBS, MODEL_PROFILES, VIDEO_URL_TTL_SECONDS
 
 IDENTIFIER = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
@@ -58,6 +59,8 @@ class VideoRequest(BaseModel):
             raise ValueError("Unsupported mode for model")
         if self.duration_seconds not in profile["durations"] or self.resolution not in profile["resolutions"]:
             raise ValueError("Unsupported duration or resolution for model")
+        if self.mode == "i2v" and self.resolution.endswith("-portrait"):
+            raise ValueError("Image-to-video aspect ratio follows the source image")
         if set(self.parameters) - set(profile["defaults"]):
             raise ValueError("Unsupported parameter for model")
         self.parameters = {**profile["defaults"], **self.parameters}
@@ -131,10 +134,17 @@ def current_user(authorization: str = Header(default="")) -> str:
             if user_id.startswith("user_"):
                 raise RuntimeError("Static tokens cannot impersonate Clerk users")
             return user_id
+    if candidate.count(".") == 2:
+        try:
+            if jwt.decode(candidate, options={"verify_signature": False}).get("sid"):
+                return oauth.verify_session_token(candidate)
+        except jwt.PyJWTError:
+            pass
     return oauth.verify_oauth_token(candidate)
 
 
 api.include_router(creative_api.create_router(current_user))
+api.include_router(submissions.create_router(current_user))
 
 
 @api.get("/health")

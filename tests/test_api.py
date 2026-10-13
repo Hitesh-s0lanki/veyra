@@ -53,6 +53,30 @@ def test_deployed_model_profiles_have_valid_defaults(model_id, resolution, scale
     assert MODEL_PROFILES[model_id]["app"].startswith("video-pipeline-")
 
 
+@pytest.mark.parametrize("model_id,base_resolution", [
+    ("ltx-2.3-distilled", "512p"),
+    ("ltx-2.3-distilled", "720p"),
+    ("wan-2.2", "720p"),
+    ("hunyuanvideo-1.5", "480p"),
+    ("cogvideox-1.5", "480p"),
+])
+def test_portrait_text_to_video_presets(model_id, base_resolution):
+    portrait = f"{base_resolution}-portrait"
+    request = api_module.VideoRequest(
+        model_id=model_id, mode="t2v", prompt="A lake", resolution=portrait,
+    )
+    assert request.resolution == portrait
+    assert portrait in MODEL_PROFILES[model_id]["resolutions"]
+    assert api_module.billing.quote(
+        model_id, "t2v", request.duration_seconds, portrait, request.parameters,
+    )["resolution"] == portrait
+    with pytest.raises(ValidationError):
+        api_module.VideoRequest(
+            model_id=model_id, mode="i2v", prompt="A lake",
+            input_asset_id="asset_123", resolution=portrait,
+        )
+
+
 def test_model_specific_settings_are_validated():
     invalid = [
         {"model_id": "unknown"},

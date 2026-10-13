@@ -44,6 +44,15 @@ CREATE TABLE IF NOT EXISTS credit_ledger (
     CONSTRAINT ledger_operation_kind UNIQUE (operation_id,kind)
 );
 CREATE INDEX IF NOT EXISTS credit_ledger_user_created ON credit_ledger(user_id,created_at DESC,id DESC);
+CREATE TABLE IF NOT EXISTS video_submissions (
+    id text PRIMARY KEY, user_id text NOT NULL, challenge_id text NOT NULL,
+    selected_product text, object_key text NOT NULL UNIQUE,
+    status text NOT NULL DEFAULT 'queued', call_id text,
+    report jsonb, error_code text,
+    created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT submission_status_check CHECK (status IN ('queued','running','complete','failed'))
+);
+CREATE INDEX IF NOT EXISTS video_submissions_user_status ON video_submissions(user_id,status);
 """
 
 
@@ -61,6 +70,13 @@ def initialize():
 def owned_job(conn, job_id: str, user_id: str):
     return conn.execute(
         "SELECT * FROM video_jobs WHERE id=%s AND user_id=%s", (job_id, user_id)
+    ).fetchone()
+
+
+def owned_submission(conn, submission_id: str, user_id: str):
+    return conn.execute(
+        "SELECT * FROM video_submissions WHERE id=%s AND user_id=%s",
+        (submission_id, user_id),
     ).fetchone()
 
 

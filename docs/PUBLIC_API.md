@@ -4,14 +4,14 @@ Use the base URL supplied by the API operator. Send `Authorization: Bearer <your
 
 ## 1. Choose a model
 
-`GET /v1/models` lists accepted modes, durations, resolutions, and default parameters. Currently available:
+`GET /v1/models` lists accepted modes, durations, resolutions, and default parameters. For text to video, add `-portrait` to a listed base resolution to request portrait output. Image to video uses a base resolution and follows the source image's aspect. Currently available:
 
 | `model_id` | Modes | Seconds | Resolution | Optional `parameters` defaults |
 | --- | --- | --- | --- | --- |
-| `ltx-2.3-distilled` | `t2v`, `i2v` | 5, 10, 20 | `512p` | `{}` |
-| `wan-2.2` | `t2v` | 5 | `720p` | `{"inference_steps":10,"guidance_scale":5.0}` |
-| `hunyuanvideo-1.5` | `t2v` | 5 | `480p` | `{"inference_steps":10,"guidance_scale":6.0}` |
-| `cogvideox-1.5` | `t2v` | 5 | `480p` | `{"inference_steps":10,"guidance_scale":6.0}` |
+| `ltx-2.3-distilled` | `t2v`, `i2v` | 5, 10, 20 | `512p`, `512p-portrait`, `720p`, `720p-portrait` | `{}` |
+| `wan-2.2` | `t2v` | 5 | `720p`, `720p-portrait` | `{"inference_steps":10,"guidance_scale":5.0}` |
+| `hunyuanvideo-1.5` | `t2v` | 5 | `480p`, `480p-portrait` | `{"inference_steps":10,"guidance_scale":6.0}` |
+| `cogvideox-1.5` | `t2v` | 5 | `480p`, `480p-portrait` | `{"inference_steps":10,"guidance_scale":6.0}` |
 
 `model_id` defaults to LTX, `duration_seconds` defaults to 5, and `resolution` defaults to the selected model's listed preset. `prompt` must contain 1–2000 nonblank characters. `seed` is optional, from 0 to 4294967295. For the other three models, `inference_steps` is an integer from 1 to 100 and `guidance_scale` is a number from 0 to 20. Only the listed modes, lengths, and resolutions are currently enabled.
 

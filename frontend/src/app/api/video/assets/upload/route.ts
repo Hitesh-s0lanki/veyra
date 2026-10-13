@@ -1,12 +1,12 @@
-import { accessTokenForCurrentUser, oauthConfig, sameOrigin } from "@/lib/video-oauth";
+import { sameOrigin, sessionToken, videoApiBase } from "@/lib/video-api";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return Response.json({ detail: "Invalid origin" }, { status: 403 });
-  const token = await accessTokenForCurrentUser();
-  if (!token) return Response.json({ detail: "Connect your video account" }, { status: 401 });
+  const token = await sessionToken();
+  if (!token) return Response.json({ detail: "Sign in to use the video studio" }, { status: 401 });
   if (!request.headers.get("content-type")?.startsWith("multipart/form-data")) {
     return Response.json({ detail: "Image form required" }, { status: 415 });
   }
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     return Response.json({ detail: "Upload a JPEG, PNG, or WebP image up to 10 MB" }, { status: 422 });
   }
   try {
-    const created = await fetch(`${oauthConfig().apiBase}/v1/assets`, {
+    const created = await fetch(`${videoApiBase()}/v1/assets`, {
       method: "POST", cache: "no-store", signal: AbortSignal.timeout(30_000),
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ content_type: image.type }),

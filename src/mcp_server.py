@@ -12,6 +12,7 @@ from uuid import uuid4
 import httpx
 from dotenv import dotenv_values
 from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_access_token
 from PIL import Image, UnidentifiedImageError
 
 from src.config import DEFAULT_MODEL_ID, MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS
@@ -33,16 +34,22 @@ mcp = FastMCP(
 
 
 def _base_url() -> str:
-    value = os.getenv("VIDEO_API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+    setting = "MCP_API_INTERNAL_ORIGIN" if get_access_token() is not None else "VIDEO_API_BASE_URL"
+    value = os.getenv(setting, "http://127.0.0.1:8000").rstrip("/")
     parsed = urlparse(value)
     if parsed.scheme not in ("http", "https") or not parsed.netloc or parsed.username or parsed.password:
-        raise RuntimeError("VIDEO_API_BASE_URL is invalid")
+        raise RuntimeError(f"{setting} is invalid")
     if parsed.scheme == "http" and parsed.hostname not in ("127.0.0.1", "localhost", "::1"):
-        raise RuntimeError("Remote VIDEO_API_BASE_URL must use HTTPS")
+        raise RuntimeError(f"Remote {setting} must use HTTPS")
     return value
 
 
 def _api_token() -> str:
+    # Hosted MCP requests carry a Clerk token after the browser OAuth flow.
+    # The stdio client continues to use its private environment token.
+    access = get_access_token()
+    if access is not None:
+        return access.token
     token = os.getenv("VIDEO_API_TOKEN")
     if token:
         return token

@@ -1,18 +1,7 @@
-import {
-  ClerkProvider,
-  Show,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-} from "@clerk/nextjs";
+import { ClerkProvider } from "@clerk/nextjs";
 import { shadcn } from "@clerk/ui/themes";
 import type { Metadata, Viewport } from "next";
 import { Manrope, Space_Grotesk, Geist_Mono } from "next/font/google";
-import Image from "next/image";
-import Link from "next/link";
-import { Suspense } from "react";
-import { buttonVariants } from "@/components/ui/button";
-import { SiteFooter } from "@/components/site-footer";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -65,45 +54,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${manrope.className} ${manrope.variable} ${spaceGrotesk.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans" style={{ overflowX: "clip" }}>
-        <ClerkProvider appearance={{ theme: shadcn }}>
-          <header className="border-b border-[#e9e8e3] bg-[#f8f8f5]">
-            <nav className="mx-auto flex w-full max-w-[1500px] items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-10" aria-label="Main navigation">
-              <Link href="/" className="inline-flex shrink-0 items-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4" aria-label="Veyra home">
-                <Image src="/veyra-logo.png" alt="Veyra — Imagine it. See it move." width={1200} height={470} priority className="h-auto w-32 sm:w-40" />
-              </Link>
-              <div className="hidden items-center gap-2 text-sm font-semibold text-[#525650] md:flex">
-                <Link href="/#showcase" className="rounded-full px-4 py-2.5 transition hover:bg-[#e9ece3] hover:text-[#191a1e] focus-visible:outline-2">Explore</Link>
-                <Link href="/#how-it-works" className="rounded-full px-4 py-2.5 transition hover:bg-[#e9ece3] hover:text-[#191a1e] focus-visible:outline-2">How it works</Link>
-                <Link href="/#create" className="rounded-full px-4 py-2.5 transition hover:bg-[#e9ece3] hover:text-[#191a1e] focus-visible:outline-2">Studio</Link>
-                <Link href="/mcp" className="rounded-full px-4 py-2.5 transition hover:bg-[#e9ece3] hover:text-[#191a1e] focus-visible:outline-2">MCP</Link>
-              </div>
-              <div className="flex items-center gap-2">
-                <Suspense fallback={<span className="text-sm text-muted-foreground">Loading account...</span>}>
-                  <Show when="signed-out">
-                    <SignInButton mode="modal">
-                      <button className={`${buttonVariants({ variant: "outline" })} min-h-10 rounded-full px-4 font-semibold`}>
-                        Sign in
-                      </button>
-                    </SignInButton>
-                    <SignUpButton mode="modal">
-                      <button className={`${buttonVariants()} min-h-10 rounded-full px-4 font-semibold`}>Sign up</button>
-                    </SignUpButton>
-                  </Show>
-                  <Show when="signed-in">
-                    <UserButton />
-                  </Show>
-                </Suspense>
-              </div>
-            </nav>
-            <nav className="flex items-center gap-4 border-t border-[#e9e8e3] px-4 py-1 text-sm font-semibold text-[#525650] md:hidden" aria-label="Mobile navigation">
-              <Link href="/#showcase" className="inline-flex min-h-10 items-center">Explore</Link>
-              <Link href="/#how-it-works" className="inline-flex min-h-10 items-center">How it works</Link>
-              <Link href="/#create" className="inline-flex min-h-10 items-center">Studio</Link>
-              <Link href="/mcp" className="inline-flex min-h-10 items-center">MCP</Link>
-            </nav>
-          </header>
+        <ClerkProvider appearance={{ theme: shadcn }} signUpForceRedirectUrl="/app" signInForceRedirectUrl="/app">
           {children}
-          <SiteFooter />
         </ClerkProvider>
       </body>
     </html>

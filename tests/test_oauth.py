@@ -1,7 +1,10 @@
 """OAuth introspection keeps API ownership tied to verified Clerk users."""
 
 import httpx
+import jwt
 import pytest
+from datetime import datetime, timedelta, timezone
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 
 from src import oauth
@@ -48,3 +51,28 @@ def test_introspection_outage_is_unavailable_not_authenticated(monkeypatch):
     with pytest.raises(HTTPException) as error:
         oauth.verify_oauth_token("oauth-token")
     assert error.value.status_code == 503
+
+
+def test_dashboard_session_signature_and_origin(monkeypatch):
+    monkeypatch.setenv("CLERK_WEB_ORIGIN", "http://localhost:3000")
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key()
+    class Keys:
+        def get_signing_key_from_jwt(self, _token):
+            return type("SigningKey", (), {"key": public_key})()
+    monkeypatch.setattr(oauth, "_session_keys", lambda _issuer: Keys())
+    now = datetime.now(timezone.utc)
+    claims = {
+        "iss": "https://example.clerk.accounts.dev", "sub": "user_abc123",
+        "sid": "sess_123", "azp": "http://localhost:3000",
+        "iat": now, "nbf": now, "exp": now + timedelta(minutes=1),
+    }
+    valid = jwt.encode(claims, private_key, algorithm="RS256")
+    assert oauth.verify_session_token(valid) == "user_abc123"
+
+    wrong_origin = jwt.encode({**claims, "azp": "https://other.example"}, private_key, algorithm="RS256")
+    forged = jwt.encode(claims, rsa.generate_private_key(public_exponent=65537, key_size=2048), algorithm="RS256")
+    for token in (wrong_origin, forged):
+        with pytest.raises(HTTPException) as error:
+            oauth.verify_session_token(token)
+        assert error.value.status_code == 401

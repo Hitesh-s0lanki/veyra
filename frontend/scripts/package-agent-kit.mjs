@@ -95,5 +95,9 @@ function zip(entriesToWrite) {
 
 mkdirSync(outputRoot, { recursive: true });
 writeFileSync(resolve(outputRoot, "video-generation-agent-kit.zip"), zip(entries));
+writeFileSync(resolve(outputRoot, "video-generation-mcp-skill.zip"), zip([
+  { name: "video-generation-mcp/SKILL.md", data: readFileSync(resolve(skillRoot, "SKILL.md")) },
+  { name: "video-generation-mcp/references/prompting.md", data: readFileSync(resolve(skillRoot, "references", "prompting.md")) },
+]));
 writeFileSync(resolve(outputRoot, "AGENT_PROMPT.md"), readFileSync(resolve(skillRoot, "assets", "AGENT_PROMPT.md")));
 console.log("Packaged Video Generation MCP client, skill, and agent prompt.");
