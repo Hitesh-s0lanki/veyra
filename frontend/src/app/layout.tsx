@@ -95,11 +95,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 </Suspense>
               </div>
             </nav>
-            <div className="flex items-center gap-5 border-t border-[#e9e8e3] px-4 py-1 text-sm font-semibold text-[#525650] md:hidden">
+            <nav className="flex items-center gap-4 border-t border-[#e9e8e3] px-4 py-1 text-sm font-semibold text-[#525650] md:hidden" aria-label="Mobile navigation">
               <Link href="/#showcase" className="inline-flex min-h-10 items-center">Explore</Link>
+              <Link href="/#how-it-works" className="inline-flex min-h-10 items-center">How it works</Link>
               <Link href="/#create" className="inline-flex min-h-10 items-center">Studio</Link>
               <Link href="/mcp" className="inline-flex min-h-10 items-center">MCP</Link>
-            </div>
+            </nav>
           </header>
           {children}
           <SiteFooter />

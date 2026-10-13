@@ -1,6 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -241,14 +242,14 @@ export default function Home() {
   }
 
   return <MotionConfig reducedMotion="user">
-    <main className="mx-auto flex w-full max-w-[1500px] flex-1 flex-col gap-16 px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
-    <VideoShowcase />
+    <main className="mx-auto flex w-full max-w-[1500px] flex-1 flex-col gap-14 px-4 py-6 sm:gap-20 sm:px-6 sm:py-10 lg:px-10">
     <HeroReel />
+    <VideoShowcase />
 
     <section id="create" className="scroll-mt-8 space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-600">Workspace</p><h2 className="mt-1 text-3xl font-semibold tracking-tight">Create a video</h2></div>
         {wallet && <div className="rounded-xl border bg-card px-5 py-3 text-right"><p className="text-xs text-muted-foreground">Available credit</p><p className="text-2xl font-semibold tabular-nums">{money(wallet.balance_cents)}</p></div>}</div>
-      {!isLoaded ? <p>Loading account…</p> : !isSignedIn ? <Card><CardContent><p>Sign in to start with $2 in credit.</p></CardContent></Card> : !connected ?
+      {!isLoaded ? <p>Loading account…</p> : !isSignedIn ? <Card><CardContent className="flex flex-col items-start justify-between gap-5 py-7 sm:flex-row sm:items-center"><div><h3 className="text-lg font-semibold">Your studio starts here</h3><p className="mt-1 text-sm text-muted-foreground">Sign in to create your first video with $2 in credit.</p></div><Link href="/sign-in" className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground transition hover:bg-primary/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Sign in to create</Link></CardContent></Card> : !connected ?
         <Card><CardHeader><CardTitle>Connect your video account</CardTitle><CardDescription>Authorize this app with your Clerk account.</CardDescription></CardHeader><CardContent><a href="/api/oauth/start" className="inline-flex rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground">Connect account</a></CardContent></Card> :
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_330px]">
           <Card><CardHeader><CardTitle>Video settings</CardTitle><CardDescription>Only settings enabled by the API appear here.</CardDescription></CardHeader><CardContent className="space-y-5">

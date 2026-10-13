@@ -157,23 +157,11 @@
   }
 }
 
-.showcase-section {
-  position: relative;
-  left: 50%;
-  width: 100vw;
-  transform: translateX(-50%);
-  overflow: hidden;
-  padding-block: 2rem 2.5rem;
-}
-
 .showcase-rail {
-  scrollbar-width: none;
-  scroll-snap-type: x proximity;
+  scrollbar-color: #b8b8c5 transparent;
+  scrollbar-width: thin;
+  scroll-snap-type: x mandatory;
   overscroll-behavior-x: contain;
-}
-
-.showcase-rail::-webkit-scrollbar {
-  display: none;
 }
 
 .showcase-rail:focus-visible {
@@ -182,22 +170,22 @@
 }
 
 .showcase-tile {
-  height: clamp(300px, 27vw, 400px);
+  height: clamp(300px, 27vw, 380px);
   scroll-snap-align: start;
 }
 
 .showcase-tile-0,
 .showcase-tile-2,
 .showcase-tile-4 {
-  width: clamp(180px, 14vw, 230px);
+  width: clamp(220px, 19vw, 280px);
 }
 
 .showcase-tile-1 {
-  width: clamp(430px, 39vw, 700px);
+  width: clamp(320px, 32vw, 460px);
 }
 
 .showcase-tile-3 {
-  width: clamp(300px, 24vw, 420px);
+  width: clamp(280px, 26vw, 380px);
 }
 
 .showcase-tile-0 .showcase-tile-details,
@@ -207,41 +195,23 @@
   flex-direction: column;
 }
 
-@media (hover: hover) {
-  .showcase-tile-details {
-    opacity: 0;
-    transform: translateY(8px);
-    transition: opacity 220ms ease, transform 220ms ease;
-  }
-
-  .showcase-tile:hover .showcase-tile-details,
-  .showcase-tile:focus-within .showcase-tile-details {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @media (max-width: 640px) {
-  .showcase-section {
-    padding-block: 1rem 1.5rem;
-  }
-
   .showcase-tile {
-    height: 300px;
+    height: 330px;
   }
 
   .showcase-tile-0,
   .showcase-tile-2,
   .showcase-tile-4 {
-    width: 190px;
+    width: min(72vw, 270px);
   }
 
   .showcase-tile-1 {
-    width: 390px;
+    width: min(82vw, 340px);
   }
 
   .showcase-tile-3 {
-    width: 300px;
+    width: min(78vw, 320px);
   }
 }
 
@@ -323,7 +293,7 @@
 
 @media (max-width: 767px) {
   .hero-fan {
-    height: clamp(265px, 62vw, 420px);
+    height: min(75vw, 540px);
   }
 
   .hero-fan-card {

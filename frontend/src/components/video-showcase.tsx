@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft, ArrowRight, Download, Pause, Play, Volume2, VolumeX } from "lucide-react";
 
 const clips = [
   ["origami-dragon", "Origami Dragon", "Paper art"],
@@ -19,14 +20,6 @@ const clips = [
   ["knitted-whale", "Knitted Whale", "Textile art"],
   ["isometric-market", "Isometric Market", "Miniature 3D"],
   ["glass-butterfly", "Glass Butterfly", "Glass art"],
-] as const;
-
-const tileWidths = [
-  "clamp(180px, 14vw, 230px)",
-  "clamp(430px, 39vw, 700px)",
-  "clamp(180px, 14vw, 230px)",
-  "clamp(300px, 24vw, 420px)",
-  "clamp(180px, 14vw, 230px)",
 ] as const;
 
 function VideoTile({ clip, index }: { clip: typeof clips[number]; index: number }) {
@@ -65,15 +58,14 @@ function VideoTile({ clip, index }: { clip: typeof clips[number]; index: number 
     else { video.pause(); setPlaying(false); }
   }
 
-  return <article className={`showcase-tile showcase-tile-${index % 5} group relative shrink-0 overflow-hidden rounded-[1.25rem] bg-[#24252a]`} style={{ width: tileWidths[index % tileWidths.length], height: "clamp(300px, 27vw, 400px)", scrollSnapAlign: "start" }}>
+  return <article className={`showcase-tile showcase-tile-${index % 5} group relative shrink-0 overflow-hidden rounded-[1.25rem] bg-[#24252a]`}>
     <div className="relative h-full">
-      {failed ? <img src={`/videos/${clip[0]}.jpg`} alt={`${clip[1]} video preview`} className="absolute inset-0 h-full w-full object-cover" /> :
+      {failed ? <Image src={`/videos/${clip[0]}.jpg`} alt={`${clip[1]} video preview`} fill sizes="(max-width: 640px) 78vw, 420px" className="object-cover" /> :
         <video ref={ref} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" poster={`/videos/${clip[0]}.jpg`} muted={muted} loop playsInline preload="none" onError={() => setFailed(true)} aria-label={`${clip[1]} animated video`}>
           <source src={`/videos/${clip[0]}.mp4`} type="video/mp4" />
-          <img src={`/videos/${clip[0]}.jpg`} alt={`${clip[1]} video preview`} />
         </video>}
       <a href={`/videos/${clip[0]}.mp4`} download={`${clip[0]}.mp4`} aria-label={`Download ${clip[1]} video`} className="absolute right-3 top-3 z-10 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-white/45 bg-black/40 text-white backdrop-blur-sm transition hover:bg-black/65 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><Download size={17} aria-hidden="true" /></a>
-      <div className="showcase-tile-details absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/70 via-black/20 to-transparent p-4 text-white">
+      <div className="showcase-tile-details absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-4 pt-12 text-white">
         <div className="min-w-0 pb-1">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/80">{clip[2]}</p>
           <h3 className="mt-1 truncate text-base font-semibold tracking-tight sm:text-lg">{clip[1]}</h3>
@@ -89,69 +81,45 @@ function VideoTile({ clip, index }: { clip: typeof clips[number]; index: number 
 
 export function VideoShowcase() {
   const railRef = useRef<HTMLDivElement>(null);
-  const [autoScroll, setAutoScroll] = useState(true);
+  const [canScrollBack, setCanScrollBack] = useState(false);
+  const [canScrollForward, setCanScrollForward] = useState(true);
 
   useEffect(() => {
     const rail = railRef.current;
-    if (!rail || !autoScroll) return;
-
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let visible = false;
-    let hovered = false;
-    let focused = false;
-    let pauseUntil = 0;
-    let direction = 1;
-    let previousTime = 0;
-    let frame = 0;
-
-    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }, { threshold: 0.15 });
-    observer.observe(rail);
-
-    const pauseForInteraction = () => { pauseUntil = performance.now() + 5000; };
-    const onMouseEnter = () => { hovered = true; };
-    const onMouseLeave = () => { hovered = false; };
-    const onFocusIn = () => { focused = true; };
-    const onFocusOut = (event: FocusEvent) => {
-      if (!rail.contains(event.relatedTarget as Node | null)) focused = false;
+    if (!rail) return;
+    const updateControls = () => {
+      setCanScrollBack(rail.scrollLeft > 2);
+      setCanScrollForward(rail.scrollLeft < rail.scrollWidth - rail.clientWidth - 2);
     };
-    rail.addEventListener("mouseenter", onMouseEnter);
-    rail.addEventListener("mouseleave", onMouseLeave);
-    rail.addEventListener("focusin", onFocusIn);
-    rail.addEventListener("focusout", onFocusOut);
-    rail.addEventListener("pointerdown", pauseForInteraction);
-    rail.addEventListener("wheel", pauseForInteraction, { passive: true });
-
-    const tick = (time: number) => {
-      const elapsed = Math.min(time - (previousTime || time), 64);
-      previousTime = time;
-      if (visible && !hovered && !focused && time >= pauseUntil && !document.hidden && !reducedMotion.matches) {
-        const limit = rail.scrollWidth - rail.clientWidth;
-        if (limit > 0) {
-          rail.scrollLeft += direction * 52 * elapsed / 1000;
-          if (rail.scrollLeft >= limit - 1) direction = -1;
-          else if (rail.scrollLeft <= 1) direction = 1;
-        }
-      }
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-
+    const resizeObserver = new ResizeObserver(updateControls);
+    resizeObserver.observe(rail);
+    rail.addEventListener("scroll", updateControls, { passive: true });
+    updateControls();
     return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-      rail.removeEventListener("mouseenter", onMouseEnter);
-      rail.removeEventListener("mouseleave", onMouseLeave);
-      rail.removeEventListener("focusin", onFocusIn);
-      rail.removeEventListener("focusout", onFocusOut);
-      rail.removeEventListener("pointerdown", pauseForInteraction);
-      rail.removeEventListener("wheel", pauseForInteraction);
+      resizeObserver.disconnect();
+      rail.removeEventListener("scroll", updateControls);
     };
-  }, [autoScroll]);
+  }, []);
 
-  return <section id="showcase" className="showcase-section scroll-mt-24" style={{ position: "relative", left: "50%", width: "100vw", transform: "translateX(-50%)", overflow: "hidden", paddingBlock: "2rem 2.5rem" }} aria-label="Video gallery">
+  function moveGallery(direction: -1 | 1) {
+    const rail = railRef.current;
+    if (!rail) return;
+    rail.scrollBy({ left: direction * Math.min(rail.clientWidth * 0.8, 620), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
 
-    <button type="button" onClick={() => setAutoScroll((current) => !current)} aria-label={`${autoScroll ? "Pause" : "Resume"} gallery scrolling`} aria-pressed={!autoScroll} className="absolute z-10 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-[#d8d8d2] bg-white/90 text-[#151515] transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5a55df]" style={{ position: "absolute", right: 16, top: 8, zIndex: 10 }}>{autoScroll ? <Pause size={18} aria-hidden="true" /> : <Play size={18} aria-hidden="true" />}</button>
-    <div ref={railRef} className="showcase-rail mt-10 flex gap-3 overflow-x-auto px-4 pb-2 sm:mt-14 sm:gap-4 sm:px-6 lg:px-10" style={{ scrollbarWidth: "none", scrollSnapType: "none", overscrollBehaviorX: "contain" }} role="region" aria-label="Video gallery. Scroll horizontally to explore more videos." tabIndex={0}>
+  return <section id="showcase" className="scroll-mt-24 space-y-6" aria-labelledby="showcase-title">
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-600">Explore the possibilities</p>
+        <h2 id="showcase-title" className="mt-1 font-heading text-3xl font-semibold tracking-tight sm:text-4xl">Made to move.</h2>
+        <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Browse real clips in a range of styles. Play, listen, or download a favorite.</p>
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => moveGallery(-1)} disabled={!canScrollBack} aria-label="Previous videos" aria-controls="showcase-rail" className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white text-foreground transition hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"><ArrowLeft size={18} aria-hidden="true" /></button>
+        <button type="button" onClick={() => moveGallery(1)} disabled={!canScrollForward} aria-label="Next videos" aria-controls="showcase-rail" className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white text-foreground transition hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"><ArrowRight size={18} aria-hidden="true" /></button>
+      </div>
+    </div>
+    <div id="showcase-rail" ref={railRef} className="showcase-rail flex gap-3 overflow-x-auto pb-3 sm:gap-4" role="region" aria-label="Video gallery. Scroll horizontally to explore more videos." tabIndex={0}>
       {clips.map((clip, index) => <VideoTile key={clip[0]} clip={clip} index={index} />)}
     </div>
   </section>;
