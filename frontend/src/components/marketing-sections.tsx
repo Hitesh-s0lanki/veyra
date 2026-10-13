@@ -1,28 +1,58 @@
 import Image from "next/image";
-import { Clapperboard, PenLine, Sparkles } from "lucide-react";
+import { Clapperboard, Cpu, ExternalLink, Layers3, PenLine } from "lucide-react";
 import { motion } from "motion/react";
 import { FadeIn } from "@/components/motion-primitives";
 
 const steps = [
-  { icon: PenLine, title: "Start with an idea", body: "Describe a scene or upload an image to animate." },
-  { icon: Sparkles, title: "Make it yours", body: "Optionally refine the prompt or create an image with the creative agent." },
-  { icon: Clapperboard, title: "See the price, then create", body: "Review the exact cost before generating. Your finished video stays in your library." },
+  { icon: PenLine, title: "Bring an idea", body: "Write a prompt, or give LTX 2.3 an image to animate." },
+  { icon: Layers3, title: "Choose a model", body: "Try a different engine to find the motion and style you want." },
+  { icon: Clapperboard, title: "Run a real render", body: "Review the price, generate on a Modal GPU worker, and keep the MP4 in your library." },
+];
+
+// Keep this overview aligned with the enabled MODEL_PROFILES in src/config.py.
+const openModels = [
+  { name: "LTX 2.3 Distilled", capability: "Text + image to video" },
+  { name: "Wan 2.2", capability: "Text to video" },
+  { name: "HunyuanVideo 1.5", capability: "Text to video" },
+  { name: "CogVideoX 1.5", capability: "Text to video" },
 ];
 
 export function HowItWorks() {
-  return <div id="how-it-works" className="scroll-mt-24 rounded-2xl bg-[#f2f2fb] px-5 py-6 sm:px-7 sm:py-7">
-    <ol className="grid gap-6 md:grid-cols-3 md:gap-0" aria-label="How video creation works">
-      {steps.map((step, index) => <li key={step.title} className="flex gap-4 md:flex-col md:gap-3 md:border-r md:border-[#dcdcef] md:px-6 md:first:pl-0 md:last:border-r-0 md:last:pr-0">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#514ad5] shadow-sm" aria-hidden="true">
-          <step.icon className="h-5 w-5" strokeWidth={1.8} />
-        </span>
+  return <div id="how-it-works" className="scroll-mt-24 space-y-5">
+    <div className="relative isolate overflow-hidden rounded-[1.75rem] bg-[#171b36] p-6 text-white sm:p-8 lg:p-10">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 h-72 w-72 rounded-full bg-[#6759e8]/35 blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 left-1/4 -z-10 h-64 w-64 rounded-full bg-[#2682b5]/20 blur-3xl" />
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:items-center lg:gap-12">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5854b4]">Step {String(index + 1).padStart(2, "0")}</p>
-          <h3 className="mt-1 font-heading text-base font-semibold leading-snug text-[#1b1b26] sm:text-lg">{step.title}</h3>
-          <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-[#58586a]">{step.body}</p>
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-[#d9dbff]"><Cpu size={15} aria-hidden="true" /> On-demand GPU workers</span>
+          <h3 className="mt-5 max-w-lg font-heading text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">Meet the engines behind the motion.</h3>
+          <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#c7c9df] sm:text-base">This project sends generation jobs to four separately deployed Modal GPU workers. Pick an engine, test an idea, and keep the resulting MP4 in your library.</p>
+          <a href="https://github.com/Hitesh-s0lanki/video-generation-pipeline" target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-white underline decoration-white/40 underline-offset-4 transition hover:decoration-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Explore the source <ExternalLink size={17} aria-hidden="true" /><span className="sr-only">(opens in a new tab)</span></a>
         </div>
-      </li>)}
-    </ol>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3" aria-label="Available video models">
+          {openModels.map((model, index) => <div key={model.name} className="min-h-27 rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-sm sm:p-4">
+            <span className="text-[11px] font-bold tracking-[0.18em] text-[#aaa8ff]">0{index + 1}</span>
+            <p className="mt-2 font-heading text-sm font-semibold leading-tight text-white sm:text-base">{model.name}</p>
+            <p className="mt-1 text-xs leading-snug text-[#c7c9df]">{model.capability}</p>
+          </div>)}
+        </div>
+      </div>
+    </div>
+    <div className="rounded-2xl bg-[#f2f2fb] px-5 py-6 sm:px-7 sm:py-7">
+      <h3 className="mb-5 text-xs font-bold uppercase tracking-[0.17em] text-[#5752ad]">How a clip gets made</h3>
+      <ol className="grid gap-6 md:grid-cols-3 md:gap-0" aria-label="How video creation works">
+        {steps.map((step, index) => <li key={step.title} className="flex gap-4 md:flex-col md:gap-3 md:border-r md:border-[#dcdcef] md:px-6 md:first:pl-0 md:last:border-r-0 md:last:pr-0">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#514ad5] shadow-sm" aria-hidden="true">
+            <step.icon className="h-5 w-5" strokeWidth={1.8} />
+          </span>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5854b4]">Step {String(index + 1).padStart(2, "0")}</p>
+            <h4 className="mt-1 font-heading text-base font-semibold leading-snug text-[#1b1b26] sm:text-lg">{step.title}</h4>
+            <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-[#58586a]">{step.body}</p>
+          </div>
+        </li>)}
+      </ol>
+    </div>
   </div>;
 }
 
