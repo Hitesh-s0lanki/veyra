@@ -49,7 +49,8 @@ jobs:
         run: |
           VERSION=$(cat VERSION)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "image_name=ghcr.io/${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
+          # Render's image-backed service still uses the package name from before the repository rename.
+          echo "image_name=ghcr.io/hitesh-s0lanki/video-generation-pipeline" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
