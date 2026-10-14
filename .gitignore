@@ -9,9 +9,20 @@ wheels/
 # Virtual environments
 .venv
 
+# Test and tooling caches
+.pytest_cache/
+
+# Agent harness tooling (installed skills; not project files)
+.agents/
+
 # Local secrets and OS files
 .env
+.env.local
 .DS_Store
 
 # Generated video previews
 outputs/
+
+# Frontend junk not covered by frontend/.gitignore
+frontend/.edge-ui-check/
+frontend/ui-check.png

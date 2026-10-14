@@ -1,146 +1,79 @@
 # Video generation API: guide for agents
 
-Use this guide to call this repository's LTX-2.3 video service. The FastAPI app accepts a prompt, queues a Modal GPU job, and returns a private MP4 download URL after generation. It does not write or improve prompts automatically. For prompt drafting, use `.agent/skills/video-prompting/SKILL.md` and its LTX-2.3 reference.
+Read this before calling the project API. The FastAPI service dispatches a job to one of four independently deployed Modal GPU workers. A `POST /v1/videos` request starts billable generation. Do not submit a job unless the user asked for a video. Use `.agent/skills/video-prompting/SKILL.md` and its LTX-2.3 reference when drafting an LTX prompt; use `.agent/skills/ltx-video-generation/SKILL.md` for LTX clip generation and download. `src/config.py` is the source of truth for accepted API settings.
+
+Agents using MCP can use the local FastMCP tools instead of building HTTP requests. See [MCP server setup and tool workflow](MCP_SERVER.md). The same model limits, ownership, billing, and one-hour URL rules apply.
 
 ## Connection and authorization
 
-- Local base URL, when the local server is running: `http://127.0.0.1:8000`.
-- Hosted base URL: use the `web` URL from `modal deploy modal_app.py` or the deployment configuration. Do not assume a local server or a past deployment URL is still available; check `GET /health` first.
-- `GET /health` is public and returns `{"status":"ok"}` with HTTP 200. It confirms the API process is responding, not GPU readiness.
-- Every `/v1` endpoint requires `Authorization: Bearer <token>`. The token is a key in `API_TOKENS_JSON`; the mapped user ID owns that user's assets and jobs. Obtain a token through the user's existing setup. Never put a token, presigned S3 URL, or download URL in logs, source control, or chat output.
-- JSON requests use `Content-Type: application/json`. Browser CORS allows all origins, methods, and headers; CORS does not replace bearer authorization.
+- Use the API base URL supplied by the user's deployment. For a running local API, this is usually `http://127.0.0.1:8000`. The main API need not be deployed on Modal; do not assume an old Modal web URL is live.
+- Check `GET /health` first. HTTP 200 `{"status":"ok"}` confirms the API process, not GPU readiness.
+- Every `/v1` route, including `GET /v1/models`, requires `Authorization: Bearer <token>`. The API accepts configured static tokens or verified Clerk OAuth access tokens. The mapped static user or Clerk subject owns the assets and jobs. Never put tokens or signed S3 URLs in chat, logs, or source control. See [OAuth account connection](AUTH.md).
+- JSON requests use `Content-Type: application/json`. Store the base URL and bearer token in private environment variables such as `BASE_URL` and `VIDEO_API_TOKEN`.
 
-Set `BASE_URL` and `VIDEO_API_TOKEN` in the calling environment before using the examples below. Do not commit their values.
+## Models and request fields
 
-## Supported generation settings
+Query `GET /v1/models` for the accepted combinations. As of 13 October 2026:
 
-| Field | Accepted value | Notes |
-| --- | --- | --- |
-| `mode` | `t2v` or `i2v` | `i2v` requires an uploaded image asset. |
-| `prompt` | Nonblank string, at most 2,000 characters | The API trims surrounding whitespace. Describe one coherent clip. |
-| `duration_seconds` | `5`, `10`, or `20` | Optional; defaults to `5`. |
-| `resolution` | `512p` | Optional; currently the only preset, 768×512 at 24 fps. |
-| `seed` | Integer from `0` to `4294967295` | Optional; otherwise the server picks one. The chosen seed is not returned in the public job response. |
-| `input_asset_id` | Asset ID from `POST /v1/assets` | Required for `i2v`; must be omitted for `t2v`. |
+| `model_id` | Modes | `duration_seconds` | `resolution` | Default `parameters` |
+| --- | --- | --- | --- | --- |
+| `ltx-2.3-distilled` | `t2v`, `i2v` | 5, 10, 20 | `512p`, `512p-portrait`, `720p`, `720p-portrait` | `{}` |
+| `wan-2.2` | `t2v` | 5 | `720p`, `720p-portrait` | `{"inference_steps":10,"guidance_scale":5.0}` |
+| `hunyuanvideo-1.5` | `t2v` | 5 | `480p`, `480p-portrait` | `{"inference_steps":10,"guidance_scale":6.0}` |
+| `cogvideox-1.5` | `t2v` | 5 | `480p`, `480p-portrait` | `{"inference_steps":10,"guidance_scale":6.0}` |
 
-The frame counts are 121, 241, and 481 for 5, 10, and 20 seconds, respectively. A 30-second single request and other resolutions are rejected. Check `src/config.py` before using these limits if the code has changed.
+The landscape combinations have successful worker jobs. Portrait presets are configured in source and require redeployment and a live render before relying on the hosted API. Do not infer support for another mode, duration, or resolution from the model's general capabilities. `model_id` defaults to LTX for old clients, `duration_seconds` defaults to 5, and omitted `resolution` uses the selected model's enabled preset. `prompt` is a nonblank string of at most 2,000 characters. `seed` is an optional integer from 0 to 4294967295. For Wan, HunyuanVideo, and CogVideoX, optional `parameters.inference_steps` must be an integer from 1 to 100 and `parameters.guidance_scale` a number from 0 to 20. Omitted parameter values use the table defaults. LTX accepts an empty `parameters` object only. Unknown model IDs, parameters, and unsupported combinations return HTTP 422.
 
-## Text-to-video flow
+For `i2v`, supply `input_asset_id` from this API's asset upload flow and use a base resolution. For `t2v`, omit the asset and choose a base resolution for landscape or a `-portrait` resolution for portrait. LTX text-to-video renders at 768×512 or 512×768 for `512p`, and 1280×704 or 704×1280 for `720p`, at 24 fps. LTX image-to-video follows the conditioning image's aspect at the base preset's pixel class (`512p`: 832×480 landscape, 480×832 portrait, 640×640 square; `720p`: 1280×704 landscape, 704×1280 portrait, 896×896 square) so inputs are not stretched. Its 5, 10, and 20 second requests use 121, 241, and 481 frames. Do not assume these frame counts apply to the other workers.
 
-1. Draft a prompt that fits the chosen clip length.
-2. Submit `POST /v1/videos`. This starts a billable GPU job. Submit only when video generation is requested.
-3. Save the returned `job_id`. Poll its status until it is terminal.
-4. On success, request a download URL and fetch the MP4 promptly.
+## Text-to-video
 
-Request:
+1. Draft one coherent prompt for the selected clip length.
+2. Submit `POST /v1/videos` with a fresh `Idempotency-Key` for this complete normalized request. Reuse that key only when retrying the same request for the same user. Changing the request with the same key returns HTTP 409.
+3. Save `job_id` and poll `GET /v1/videos/{job_id}` every few seconds until the status is `succeeded`, `failed`, or `cancelled`.
+4. On success, the status response contains `output.video_key`, `output.video_url`, `output.expires_at`, and an estimated GPU cost. The signed URL is valid for one hour. Call `GET /v1/videos/{job_id}/download` to renew it when needed. Do not expose the URL beyond the intended recipient.
+
+Example for Wan:
 
 ```http
 POST /v1/videos
 Authorization: Bearer <token>
-Idempotency-Key: unique-request-key-001
+Idempotency-Key: wan-lake-001
 Content-Type: application/json
 
-{"mode":"t2v","prompt":"A slow dolly toward a mountain at sunrise as clouds drift across the valley; wind and distant birds are audible.","duration_seconds":5,"resolution":"512p","seed":42}
+{"model_id":"wan-2.2","mode":"t2v","prompt":"A slow camera move over a lake as morning mist drifts above the water.","duration_seconds":5,"resolution":"720p","parameters":{"inference_steps":10,"guidance_scale":5.0},"seed":42}
 ```
 
-Initial response (HTTP 202):
+For the other models, change `model_id` and use the corresponding preset from the table. The initial HTTP 202 response contains `job_id`, `model_id`, `status: queued`, and `status_url`. Status responses also contain `progress: null`; there is no reliable percentage. A successful status adds `download_url`, `output`, and `cost`. `cost.estimated_gpu_cost_usd` is a six-decimal USD string or `null`; it is an estimate for worker GPU runtime, not exact billed spend. A failure adds a sanitized `error_code` such as `dispatch_failed`, `generation_failed`, `out_of_memory`, `dispatch_lost`, or `worker_lost`. Do not blindly submit a new job after failure because that can incur another GPU charge.
+
+## LTX image-to-video
+
+1. Prepare a JPEG, PNG, or WebP image of at most 10 MB, at least 256×256 pixels, and no more than 16 million pixels.
+2. Call `POST /v1/assets` with `{"content_type":"image/png"}` or the matching JPEG/WebP MIME type. The response contains `asset_id` and `upload`.
+3. Send a multipart form POST directly to `upload.url`. Include **every** key/value in `upload.fields` and the image as the `file` field. This S3 upload does not use the API bearer header. The presigned form expires after 15 minutes.
+4. Submit the LTX request with the returned asset ID:
 
 ```json
-{"job_id":"vid_...","status":"queued","status_url":"/v1/videos/vid_..."}
+{"model_id":"ltx-2.3-distilled","mode":"i2v","prompt":"The camera moves slowly toward the lake as ripples spread outward.","input_asset_id":"asset_...","duration_seconds":10,"resolution":"512p"}
 ```
 
-`Idempotency-Key` is optional but recommended for client retries. It may contain letters, digits, `_`, or `-`, up to 80 characters. Reuse it only for the **same complete JSON request** under the same user. Reusing it with a changed request returns HTTP 409. A distinct generation request needs a new key.
+The asset must belong to the same bearer-token user. The API validates the stored image before starting the job. An arbitrary image URL cannot replace `input_asset_id`.
 
-## Image-to-video flow
+## Status, cancellation, and limits
 
-1. Start with a local JPEG, PNG, or WebP file. Maximum size: 10 MB; minimum dimensions: 256×256; maximum pixel count: 16 million.
-2. Call `POST /v1/assets` with `{"content_type":"image/png"}` (or the matching JPEG/WebP MIME type). This returns an `asset_id` and an `upload` object.
-3. Send a **multipart/form-data POST directly to `upload.url`**, with every key/value from `upload.fields` as form fields and the image as the `file` field. This S3 upload does not use the API bearer header. Its presigned form expires after 15 minutes. Do not assume the field names or values; use the returned object verbatim.
-4. Submit `POST /v1/videos` with `mode: "i2v"` and that `asset_id`. The asset must belong to the same bearer-token user. The API validates the stored image before starting the job.
+- `GET /v1/videos/{job_id}` returns the owner-scoped job status and `model_id`. Status is `queued`, `running`, `succeeded`, `failed`, or `cancelled`.
+- `GET /v1/videos/{job_id}/download` returns `video_key`, `video_url`, `expires_in: 3600`, `expires_at`, file metadata, and `cost` after success. It returns HTTP 409 before the video is ready.
+- `POST /v1/videos/url` with `{"video_key":"..."}` returns the same fields after an owner-scoped lookup. It returns HTTP 404 for a missing or another user's key. The key cannot sign arbitrary objects.
+- `POST /v1/videos/{job_id}/cancel` requests best-effort cancellation. Cancellation can race with completion; check the final status.
+- HTTP 401 means missing/invalid bearer token; 404 means a job or asset is not found for this user; 422 means invalid settings or image; 429 means the user already has two active jobs; 503 means Modal dispatch failed.
 
-Asset request and representative response (HTTP 201):
-
-```http
-POST /v1/assets
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{"content_type":"image/png"}
-```
-
-```json
-{"asset_id":"asset_...","upload":{"url":"https://...","fields":{"key":"...","Content-Type":"image/png","policy":"...","x-amz-algorithm":"...","x-amz-credential":"...","x-amz-date":"...","x-amz-signature":"..."}}}
-```
-
-The `fields` object varies with S3 signing; the example is illustrative. A Python upload with `httpx` looks like this:
-
-```python
-import os
-from pathlib import Path
-import httpx
-
-base_url = os.environ["BASE_URL"].rstrip("/")
-token = os.environ["VIDEO_API_TOKEN"]
-image = Path("input.png")
-with httpx.Client(timeout=120) as client:
-    asset = client.post(
-        f"{base_url}/v1/assets",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"content_type": "image/png"},
-    )
-    asset.raise_for_status()
-    result = asset.json()
-    with image.open("rb") as stream:
-        upload = client.post(
-            result["upload"]["url"],
-            data=result["upload"]["fields"],
-            files={"file": (image.name, stream, "image/png")},
-        )
-        upload.raise_for_status()
-    asset_id = result["asset_id"]
-```
-
-Then submit:
-
-```json
-{"mode":"i2v","prompt":"The camera moves slowly toward the lake as ripples spread outward; reeds sway in the breeze.","input_asset_id":"asset_...","duration_seconds":10,"resolution":"512p"}
-```
-
-The prompt should describe movement and change from the input image. The API does not accept an arbitrary image URL in place of `input_asset_id`.
-
-## Status, download, and cancellation
-
-Call `GET /v1/videos/{job_id}` with the bearer token. Responses have `job_id`, `status`, `status_url`, and `progress`. Status is `queued`, `running`, `succeeded`, `failed`, or `cancelled`; `progress` is always `null`. Poll every few seconds, with a reasonable overall timeout. Stop polling at a terminal state.
-
-On success, the status response also contains `"download_url":"/v1/videos/{job_id}/download"`. Call that route with the bearer token. It returns JSON such as:
-
-```json
-{"video_url":"https://...signed-S3-URL...","expires_in":900}
-```
-
-Fetch `video_url` to save the MP4. The URL expires after 900 seconds; request a new one if it expires. The `/download` route returns HTTP 409 until the job succeeds. It returns a URL, not video bytes.
-
-On failure, status includes an `error_code`, such as `dispatch_failed`, `generation_failed`, `out_of_memory`, `dispatch_lost`, or `worker_lost`. Do not retry blindly with a new idempotency key: that starts another GPU job. Report the code and choose a retry only when appropriate to the user's request.
-
-`POST /v1/videos/{job_id}/cancel` requests best-effort cancellation. A job that is already terminal returns its current state. Cancellation can race with a worker finishing, so check the final status.
-
-## HTTP errors and limits
-
-| Status | Meaning |
-| --- | --- |
-| `401` | Bearer token missing or invalid. |
-| `404` | Job or asset not found for this user. |
-| `409` | Idempotency key reused with different request, or download requested before success. |
-| `422` | Invalid body, unsupported settings/image, or missing image upload. |
-| `429` | The user already has two active jobs. Wait for one to finish. |
-| `503` | Modal dispatch failed after job creation. |
-
-The service handles one clip per request. It does not merge clips, generate prompts, expose percentage progress, or automatically retry failed jobs. Output and uploads are private S3 objects. Storage retention and broader rate limiting are external infrastructure concerns.
+The API handles one clip per request. It does not merge clips, rewrite prompts, expose percentage progress, or automatically retry failed jobs. The worker runs on demand and may take time to start. Storage retention and wider rate limiting belong in the deployment infrastructure.
 
 ## Source of truth
 
-- `src/api.py`: endpoint behavior and request validation.
-- `src/config.py`: current generation settings.
-- `src/storage.py`: S3 upload, download, and image validation.
-- `modal_app.py`: GPU worker, web deployment, and job reconciliation.
-- `README.md`: setup, deployment, and verified live examples.
+- `src/config.py`: model IDs, Modal app names, accepted profiles, and shared limits.
+- `src/api.py`: authorization, validation, job creation, and Modal dispatch.
+- `src/db.py`: job state and schema migration.
+- `src/storage.py`: private S3 upload, download, and image validation.
+- `README.md`: startup and deployment context.
+- `docs/PUBLIC_API.md`: client-facing request and response contract.

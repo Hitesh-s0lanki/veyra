@@ -1,66 +1,101 @@
-# LTX-2.3 video API on Modal
+# Video generation API with on-demand Modal workers
 
-This repository implements the [deployment design](docs/LTX-2.3_Modal_On_Demand_Deployment_Design.docx): a CPU FastAPI web endpoint, an on-demand H200 GPU worker, PostgreSQL job state, and private S3 input/output objects. It uses the official LTX-2.3 distilled checkpoint and pipeline with CPU weight offload. The selected pipeline requires dimensions divisible by 64, so a literal 1280×720 setting is not exposed.
+The FastAPI service accepts a video request, records a private job in PostgreSQL, and dispatches it to one of four already deployed Modal GPU workers. The API can run on your own server; the main API does not need a Modal deployment. Workers scale to zero when idle. Input images and output MP4s stay in a private S3 bucket.
 
-The Modal app is `ltx-23-video`. The web endpoint exposes `POST /v1/assets`, `POST /v1/videos`, `GET /v1/videos/{job_id}`, `GET /v1/videos/{job_id}/download`, and `POST /v1/videos/{job_id}/cancel`. All `/v1` routes require `Authorization: Bearer <token>`. The API token maps to a stable user ID; object keys and jobs are scoped to that ID. The public web function allocates CPU only; the worker allocates an H200 when called.
+## Project layout
 
-## Generation settings
+| Path | Purpose |
+| --- | --- |
+| `src/` | FastAPI service, generation, creator verification, storage, billing, and MCP implementation |
+| `frontend/` | Next.js website and its static assets |
+| `docs/` | API, authentication, and integration guides |
+| `scripts/` | One-off generation and verification utilities |
+| `tests/` | Python API and MCP tests |
+| `reports/` | Generation records and cost reports |
+| `vendor/` | Lockfile required by the LTX Modal deployment |
+| `.agent/skills/` | Agent prompting and video generation instructions |
+| `outputs/` | Local generated media; ignored by Git |
 
-Both `t2v` (text prompt) and `i2v` (uploaded image plus text prompt) accept the following single-clip durations at `512p` (768×512), 24 fps:
+`modal_app.py` and `mcp_server.py` stay at the repository root as the LTX deployment and MCP client entry points. `src/verification_worker.py` is a separate Modal deployment for creator video reviews. The frontend generates its downloadable MCP bundle from the project sources when it starts or builds.
 
-| Requested duration | Frames | Encoded duration |
-| --- | ---: | ---: |
-| 5 seconds | 121 | About 5.04 seconds |
-| 10 seconds | 241 | About 10.04 seconds |
-| 20 seconds | 481 | About 20.04 seconds |
+## Available models
 
-The exact frame counts are configured in `src/config.py`. A 30-second single generation is outside [LTX-2.3's published duration range](https://ltx.io/model/ltx-2-3) and is rejected by this API. Longer finished videos require generating and combining shorter clips. Longer runs use more GPU memory and time. The 5-second T2V, 10-second I2V, and 20-second T2V settings have been verified end to end; other mode/duration combinations are accepted by the API but have not each been rendered in a live test.
+`GET /v1/models` returns the configured settings. The LTX landscape settings follow the existing API; successful jobs have covered 5-second T2V, 10-second I2V, and 20-second T2V. The other three landscape profiles match successful jobs observed in the shared database on 13 October 2026. Portrait presets require redeployment and a live worker render before relying on the hosted API.
 
-## Prerequisites
+| `model_id` | Modal app | Modes | Seconds | Resolution | Default `parameters` |
+| --- | --- | --- | --- | --- | --- |
+| `ltx-2.3-distilled` | `video-pipeline-ltx-23` | `t2v`, `i2v` | 5, 10, 20 | `512p`, `512p-portrait`, `720p`, `720p-portrait` | `{}` |
+| `wan-2.2` | `video-pipeline-wan-22` | `t2v` | 5 | `720p`, `720p-portrait` | `{"inference_steps":10,"guidance_scale":5.0}` |
+| `hunyuanvideo-1.5` | `video-pipeline-hunyuanvideo-15` | `t2v` | 5 | `480p`, `480p-portrait` | `{"inference_steps":10,"guidance_scale":6.0}` |
+| `cogvideox-1.5` | `video-pipeline-cogvideox-15` | `t2v` | 5 | `480p`, `480p-portrait` | `{"inference_steps":10,"guidance_scale":6.0}` |
 
-- Modal account and `modal setup` completed.
-- PostgreSQL database reachable from Modal, with permission to create the two tables on first API startup.
-- Private S3 bucket and an IAM credential able to read/write only this bucket. Configure lifecycle expiration for `uploads/` and `videos/` according to your retention policy.
-- Hugging Face account granted access to [Gemma 3](https://huggingface.co/google/gemma-3-12b-it-qat-q4_0-unquantized), with a read token in the Modal secret. Review the [LTX-2.3 model terms](https://huggingface.co/Lightricks/LTX-2.3) and Gemma terms before using them.
-- Budget for downloading and caching large checkpoints and for H200 GPU inference. The longer duration settings have not been benchmarked by this repository.
+For the three Diffusers model workers, this API accepts `inference_steps` as an integer from 1 to 100 and `guidance_scale` from 0 to 20. The defaults are the values used by the successful jobs; other parameter values have not been verified in a live render. LTX does not accept either parameter through this API. For text to video, the base resolution is landscape and `-portrait` selects portrait. LTX image-to-video follows the conditioning image's aspect at the base resolution's pixel class (832×480 landscape, 480×832 portrait, 640×640 near-square at `512p`). `model_id` defaults to `ltx-2.3-distilled` for existing callers. `duration_seconds` defaults to 5; omitted `resolution` uses the selected model's landscape preset. The seed is an optional integer from 0 to 4294967295; one is selected when omitted. The prompt must contain 1–2000 nonblank characters.
 
-Copy `.env.example` values into a private file and create a Modal Secret named `video-pipeline` with those environment variables. Keep your local `.env` out of git. The bucket must remain private. `API_TOKENS_JSON` maps each long, random bearer token to a user ID consisting of letters, digits, `_` or `-`.
+The model app names and accepted settings live in `src/config.py`. The API calls each deployed app's `VideoWorker.generate(job_id)` through the Modal SDK. It stores `model_id` and normalized `parameters` in `video_jobs` so the worker reads the same request. Startup adds these columns to an older database if needed; existing jobs default to LTX.
 
-```bash
-uv sync --extra test
-uvx --from modal==1.6.1 --with python-dotenv modal secret create video-pipeline --from-dotenv .env
-modal run modal_app.py::prepare_models
-modal deploy modal_app.py
+## Run the API outside Modal
+
+Use Python 3.12 or 3.13. Configure `.env` privately using `.env.example` as a starting point. The API host needs PostgreSQL and S3 credentials, `CLERK_OAUTH_ISSUER` and `CLERK_WEB_ORIGIN` for the web dashboard, and a Modal token with permission to call the four deployed worker apps. Set `API_TOKENS_JSON` for MCP clients or the Clerk OAuth settings for OAuth integrations. Modal SDK credentials can come from an active local `modal setup` profile or the `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` environment variables on a server. Do not expose these credentials to API clients.
+
+```powershell
+uv sync --extra test --extra mcp
+$env:MODAL_TOKEN_ID = "<server-side Modal token id>"
+$env:MODAL_TOKEN_SECRET = "<server-side Modal token secret>"
+uv run uvicorn src.api:api --env-file .env --host 127.0.0.1 --port 8000
 ```
 
-If you change `.env` after creating the Secret, rerun that Secret command with `--force` before testing. Gemma access requires accepting the model terms using the account associated with `HF_TOKEN`; viewing its model page alone does not verify download permission.
+`GET /health` checks the API process only. It does not start a GPU worker. On first startup, the API creates or migrates the two database tables. Keep the S3 bucket private. The Modal workers must use the same database and bucket settings as this API. The old `modal deploy modal_app.py` path deploys an LTX worker and a web endpoint together; it is not needed for this multi-model API and is not part of these startup steps.
 
-`prepare_models` downloads the exact LTX-2.3 checkpoint, matching spatial upscaler, and Gemma 3 encoder into a persistent Modal Volume. It should return `checkpoint: true` and `gemma: true`. The pinned upstream source is commit `d151147788a9284cca791edc6ce898007e727fe6` (v1.2.0); its resolved package lock is `vendor/ltx-uv.lock`. Model repository revisions are pinned in `src/config.py`.
+## Request a video
 
-The `modal deploy` output contains the web URL. Replace `$BASE_URL` below with it:
+Every `/v1` route needs `Authorization: Bearer <token>`. The API accepts a configured static token, a verified Clerk session token from the `/app` dashboard, or a verified Clerk OAuth access token. [Authentication setup](docs/AUTH.md) explains these flows. `GET /v1/models` lists valid models. A text-to-video request starts a billable GPU job:
 
-```bash
-curl -X POST "$BASE_URL/v1/videos" \
-  -H "Authorization: Bearer $VIDEO_API_TOKEN" \
-  -H "Idempotency-Key: my-first-video-1" \
-  -H 'Content-Type: application/json' \
-  -d '{"mode":"t2v","prompt":"A slow dolly toward a mountain at sunrise","duration_seconds":5,"resolution":"512p","seed":42}'
+```http
+POST /v1/videos
+Authorization: Bearer <token>
+Idempotency-Key: lake-wan-001
+Content-Type: application/json
 
-curl "$BASE_URL/v1/videos/$JOB_ID" -H "Authorization: Bearer $VIDEO_API_TOKEN"
-curl "$BASE_URL/v1/videos/$JOB_ID/download" -H "Authorization: Bearer $VIDEO_API_TOKEN"
+{"model_id":"wan-2.2","mode":"t2v","prompt":"A slow camera move over a lake at sunrise as mist drifts across the water.","duration_seconds":5,"resolution":"720p","seed":42,"parameters":{"inference_steps":10,"guidance_scale":5.0}}
 ```
 
-For image-to-video, call `POST /v1/assets` with `{"content_type":"image/png"}`. Upload the image to the returned presigned POST `url` with every returned `fields` entry and the file form field. Then submit `mode: "i2v"` with `input_asset_id` and a prompt, for example `{"mode":"i2v","prompt":"The camera slowly moves toward the lake","input_asset_id":"asset_...","duration_seconds":10,"resolution":"512p"}`. The API verifies the private object's size, format, and dimensions before spawning a GPU call. It does not accept arbitrary image URLs. S3 presigned POST is used so S3 enforces a 10 MB upload limit; input must be JPEG, PNG, or WebP, at least 256×256 and at most 16 million pixels.
+For LTX, omit `model_id` and `parameters` if the defaults are suitable. To animate an image with LTX, first call `POST /v1/assets` with `{"content_type":"image/png"}` (or `image/jpeg` or `image/webp`). POST the image directly to the returned S3 `upload.url` as multipart form data with **all** returned `upload.fields` and a `file` field. Then request `{"model_id":"ltx-2.3-distilled","mode":"i2v","prompt":"The camera moves toward the lake as reeds sway.","input_asset_id":"asset_...","duration_seconds":10,"resolution":"512p"}`. The image must be at most 10 MB, at least 256×256, and at most 16 million pixels.
 
-The API returns HTTP 202 and a job ID immediately. Poll the status route; when `succeeded`, call the download route for a 15-minute private URL. State is `queued`, `running`, `succeeded`, `failed`, or `cancelled`. `progress` remains null because the pipeline does not expose a reliable percentage. Failure responses expose a sanitized error code. Cancellation is best effort.
+Submission returns HTTP 202 with `job_id`, `model_id`, `status: queued`, and `status_url`. Poll `GET /v1/videos/{job_id}` every few seconds until `succeeded`, `failed`, or `cancelled`. A successful status includes the stable `video_key`, a private S3 `video_url` signed for one hour, file metadata, and an estimated GPU runtime cost in USD. `GET /v1/videos/{job_id}/download` renews the URL by job ID; `POST /v1/videos/url` with `{"video_key":"..."}` renews it by key after an owner-scoped database lookup. `POST /v1/videos/{job_id}/cancel` requests best-effort cancellation. The API permits two active jobs per user. `Idempotency-Key` is optional but recommended; reuse it only for an identical normalized request. Do not log bearer tokens or signed S3 URLs.
 
-## Verification and operating limits
+The bucket stays private; the signed URL is usable by anyone holding it until expiry. A key alone cannot be used to sign another user's video. The cost value is **GPU runtime estimate only**, based on the worker's recorded seconds and the hourly rate snapshotted on first successful retrieval. It is not an exact per-job bill and excludes startup, warm idle, CPU, memory, storage, and transfer. The API cannot report exact per-job Modal billing because Modal's billing report aggregates spend by app and hour. See the client-facing [public API contract](docs/PUBLIC_API.md) for request and response examples. [Modal billing documentation](https://modal.com/docs/guide/billing) and [AWS presigned URL documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html) explain the billing granularity and URL expiry behavior.
 
-```bash
-uv run --extra test python -m pytest -q
+The worker runs on demand, so a cold start can take time. `progress` remains `null`; the API does not report a percentage. A stopped API process does not stop an already submitted Modal worker. While the API is running, it checks stale jobs every five minutes and resolves worker calls that ended without updating the database. If the API is offline for a long period, this check resumes when it starts again.
+
+## Credits and pricing
+
+Every Clerk-signed-in user starts with a one-time `STARTER_CREDIT_CENTS` grant (200 cents = $2.00) recorded in a PostgreSQL wallet and mirrored into Clerk Billing account credits. `GET /v1/wallet` returns the balance; `GET /v1/wallet/transactions` returns the ledger. A submission reserves the quoted price before dispatch; a failed or cancelled operation refunds it. Prices live in `src/config.py` (`VIDEO_BASE_PRICES_CENTS`, `CREATIVE_PRICES_CENTS`): LTX 5s/10s/20s clips cost $0.25/$0.40/$0.70, the Diffusers models cost $0.35–$0.45, prompt optimization $0.02, and image generation $0.20. Static-token users get no grant and no Clerk sync.
+
+The Clerk mirror requires `CLERK_SECRET_KEY` on the API host and Billing credits enabled for the Clerk instance; without them paid requests fail with 503. See [docs/CREATIVE_API.md](docs/CREATIVE_API.md) for the creative endpoints and [docs/AUTH.md](docs/AUTH.md) for OAuth setup.
+
+## Agent tools with FastMCP
+
+The hosted FastMCP server provides a remote HTTP URL with browser OAuth sign-in. Run `uv run --extra mcp uvicorn src.hosted_app:app --env-file .env --host 127.0.0.1 --port 8000` to serve the API and MCP from one origin, then configure the public MCP origin, frontend origin, and Clerk OAuth application as described in [docs/MCP_SERVER.md](docs/MCP_SERVER.md). The `/mcp` page gives users the hosted URL; they do not enter an API token. A local stdio launcher remains available for development. Only a generation request starts a billable Modal worker.
+
+## Creator video verification
+
+The API also accepts creator video submissions for two **concept test** challenges imported from the sibling `video-pipeline` project. `GET /v1/challenges` lists their rules. `POST /v1/submissions` accepts a multipart video upload, `challenge_id`, and `selected_product` when the challenge has multiple options. Poll `GET /v1/submissions/{id}` for the report or use `GET /v1/submissions/{id}/video` for an owner-scoped signed source URL. All routes require the same bearer authentication as generation. Uploads are limited to 200 MB.
+
+Deploy the independent verification worker before submitting videos:
+
+```powershell
+uv sync --extra verification
+modal secret create video-pipeline --from-dotenv .env
+uv run modal deploy src/verification_worker.py
+```
+
+The worker needs the same PostgreSQL and S3 settings as the API. It installs FFmpeg and uses `GEMINI_API_KEY` for optional video review; without Gemini, visual findings remain `review`. The worker does not make final human decisions. See [verification setup and limits](docs/VERIFICATION.md).
+
+## Verification
+
+```powershell
+uv run --extra test --extra mcp python -m pytest -q
 uv run python -m compileall -q src modal_app.py
 ```
 
-The local checks verify validation, authentication, image safety, and API routing. Live smoke tests on 10 October 2026 generated privately stored 768×512 H.264/AAC MP4s and verified downloads through the signed URL endpoint: 5-second T2V (`vid_5418787b72134dfb85619f26ed86a633`, H100, 5.04 seconds, 169.86 seconds of worker execution), 10-second I2V (`vid_2c5d75e0be2842069387246755d737fd`, H200, 10.04 seconds, 142.73 seconds of worker execution), and 20-second T2V (`vid_19b12df19ca342168c703449eea0d3ae`, H200, 20.04 seconds, 110.90 seconds of worker execution). These individual runs are not latency or cost benchmarks; broader reliability cases remain to be verified. The worker currently performs one attempt per job. A scheduled Modal reconciliation function checks stale queued/running jobs every five minutes and marks failed executions with a sanitized code. Per-user active job count is capped at two. Rate limiting beyond that cap and automatic retention cleanup belong in the ingress/storage infrastructure.
-
-The measured runtime estimates and observed Modal billing for the Dream Gold product video are recorded in [the video generation cost report](reports/video_generation_costs_2026-10-10.md).
+These checks validate request profiles and dispatch routing without starting a GPU job. A full render is billable and should be run separately when required. The API behavior for agents is documented in [docs/AGENT_API_GUIDE.md](docs/AGENT_API_GUIDE.md). Earlier LTX-only live run costs remain in [reports/video_generation_costs_2026-10-10.md](reports/video_generation_costs_2026-10-10.md).

@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "example_only": true,
+  "submission_id": "example-submission-id",
+  "challenge_id": "challenge_fe92f3bf36e841cca1d02fd1a8ac708f",
+  "source_video": "/v1/submissions/example-submission-id/video",
+  "processing_status": "complete",
+  "decision": {
+    "status": "excluded",
+    "reason": "The video stream does not decode fully.",
+    "basis_check_ids": ["video_fully_decodable"],
+    "human_verification_required": true
+  },
+  "media": {
+    "duration_seconds": 34.2,
+    "display_width": 1080,
+    "display_height": 1920,
+    "has_audio": true
+  },
+  "challenge_checks": [
+    {
+      "id": "vertical_9_by_16",
+      "status": "pass",
+      "reason": "Displayed video dimensions are 1080 by 1920.",
+      "method": "ffprobe",
+      "evidence": []
+    },
+    {
+      "id": "duration_20_to_30_seconds",
+      "status": "fail",
+      "reason": "The video is 34.2 seconds long; the allowed range is 20–30 seconds.",
+      "method": "ffprobe",
+      "evidence": []
+    },
+    {
+      "id": "beard_before_visible",
+      "status": "pass",
+      "reason": "A clear before view appears near the start.",
+      "method": "llm_video",
+      "evidence": [{"start_seconds": 1.0, "end_seconds": 3.0, "source": "video"}]
+    },
+    {
+      "id": "selected_trimmer_visible",
+      "status": "review",
+      "reason": "A trimmer is visible, but the frames do not establish the selected model.",
+      "method": "llm_video",
+      "evidence": [{"start_seconds": 6.0, "end_seconds": 8.0, "source": "video"}]
+    },
+    {
+      "id": "two_to_three_trimming_shots",
+      "status": "review",
+      "reason": "Only one distinct trimming segment can be confirmed before damaged frames begin.",
+      "method": "llm_video",
+      "evidence": [{"start_seconds": 11.0, "end_seconds": 14.0, "source": "video"}]
+    },
+    {
+      "id": "final_beard_style_visible",
+      "status": "review",
+      "reason": "The ending cannot be assessed because later frames do not decode.",
+      "method": "llm_video",
+      "evidence": []
+    },
+    {
+      "id": "footage_original_and_licensed",
+      "status": "review",
+      "reason": "Video analysis cannot prove footage ownership or usage rights.",
+      "method": "human_or_rights_records",
+      "evidence": []
+    }
+  ],
+  "audio": {
+    "mode": "hygiene_only",
+    "semantic_checks": [],
+    "hygiene_checks": [
+      {
+        "id": "audio_track_decodable",
+        "status": "pass",
+        "reason": "The present audio track decodes without an error.",
+        "method": "ffmpeg",
+        "evidence": []
+      }
+    ]
+  },
+  "additional_checks": [
+    {
+      "id": "video_fully_decodable",
+      "policy_id": "platform.video_fully_decodable",
+      "status": "fail",
+      "reason": "Video frames stop decoding at 18.0 seconds.",
+      "method": "ffmpeg",
+      "evidence": [{"start_seconds": 18.0, "end_seconds": 18.0, "source": "decode_log"}]
+    }
+  ],
+  "not_passed_checks": [
+    {"id": "duration_20_to_30_seconds", "status": "fail", "reason": "The video is 34.2 seconds long; the allowed range is 20–30 seconds."},
+    {"id": "selected_trimmer_visible", "status": "review", "reason": "A trimmer is visible, but the frames do not establish the selected model."},
+    {"id": "two_to_three_trimming_shots", "status": "review", "reason": "Only one distinct trimming segment can be confirmed before damaged frames begin."},
+    {"id": "final_beard_style_visible", "status": "review", "reason": "The ending cannot be assessed because later frames do not decode."},
+    {"id": "footage_original_and_licensed", "status": "review", "reason": "Video analysis cannot prove footage ownership or usage rights."},
+    {"id": "video_fully_decodable", "status": "fail", "reason": "Video frames stop decoding at 18.0 seconds."}
+  ],
+  "llm_analysis": {
+    "used": true,
+    "role": "propose_timestamped_visual_observations",
+    "output_validation": "schema_and_timestamp_ranges_checked_by_code",
+    "final_decision_by_llm": false
+  }
+}
