@@ -2,7 +2,7 @@
 // `scripts/check-video-routes.mjs` transpiles this file and verifies that every
 // route the UI calls is mapped here, so a new client call cannot 404 silently.
 
-export type ProxyMethod = "GET" | "POST";
+export type ProxyMethod = "GET" | "POST" | "PUT";
 
 export type RouteRule = {
   methods: ProxyMethod[];
@@ -15,6 +15,7 @@ export type RouteRule = {
 // IDs are produced by the API as a prefix plus 32 hex characters.
 const JOB_ID = /^vid_[a-f0-9]{32}$/;
 const ASSET_ID = /^asset_[a-f0-9]{32}$/;
+const CONCEPT_ID = /^con_[a-f0-9]{32}$/;
 
 export const VIDEO_API_ROUTES: RouteRule[] = [
   { methods: ["GET"], segments: ["models"], target: "/v1/models" },
@@ -31,6 +32,12 @@ export const VIDEO_API_ROUTES: RouteRule[] = [
   { methods: ["GET"], segments: ["creative", "pricing"], target: "/v1/creative/pricing" },
   { methods: ["POST"], segments: ["creative", "prompt"], target: "/v1/creative/prompt" },
   { methods: ["POST"], segments: ["creative", "images"], target: "/v1/creative/images" },
+  { methods: ["GET", "POST"], segments: ["concepts"], target: "/v1/concepts" },
+  { methods: ["GET"], segments: ["concepts", CONCEPT_ID], target: (p) => `/v1/concepts/${p[0]}` },
+  { methods: ["POST"], segments: ["concepts", CONCEPT_ID, "chat"], target: (p) => `/v1/concepts/${p[0]}/chat` },
+  { methods: ["PUT"], segments: ["concepts", CONCEPT_ID, "plan"], target: (p) => `/v1/concepts/${p[0]}/plan` },
+  { methods: ["POST"], segments: ["concepts", CONCEPT_ID, "generate"], target: (p) => `/v1/concepts/${p[0]}/generate` },
+  { methods: ["POST"], segments: ["concepts", CONCEPT_ID, "retry"], target: (p) => `/v1/concepts/${p[0]}/retry` },
 ];
 
 export function matchVideoApiRoute(method: string, segments: string[]): string | null {

@@ -38,7 +38,7 @@ def _guide(model_id: str) -> str:
     )
 
 
-def _generate(model: str, parts: list[dict], *, image: bool = False) -> dict:
+def _generate(model: str, parts: list[dict], *, image: bool = False, api_key: str | None = None) -> dict:
     body = {
         "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {"responseModalities": ["TEXT", "IMAGE"] if image else ["TEXT"]},
@@ -46,7 +46,7 @@ def _generate(model: str, parts: list[dict], *, image: bool = False) -> dict:
     req = Request(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
         data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json", "x-goog-api-key": require_env("GEMINI_API_KEY")},
+        headers={"Content-Type": "application/json", "x-goog-api-key": api_key or require_env("GEMINI_API_KEY")},
         method="POST",
     )
     try:

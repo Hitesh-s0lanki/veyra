@@ -1,12 +1,15 @@
 import { auth } from "@clerk/nextjs/server";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { VideoDashboard } from "@/components/video-dashboard";
 
 async function AuthenticatedDashboard({ searchParams }: { searchParams: PageProps<"/app">["searchParams"] }) {
-  const video = (await searchParams).video;
-  const returnBackUrl = typeof video === "string" ? `/app?video=${encodeURIComponent(video)}` : "/app";
+  const params = await searchParams;
+  const video = params.video;
+  const returnBackUrl = typeof video === "string" ? `/app?video=${encodeURIComponent(video)}` : typeof params.concept === "string" ? `/app?concept=${encodeURIComponent(params.concept)}` : "/app";
   const { userId, redirectToSignIn } = await auth();
   if (!userId) return redirectToSignIn({ returnBackUrl });
+  if (params.mode === "concept" && typeof params.concept === "string") redirect(`/chat?id=${encodeURIComponent(params.concept)}`);
   return <VideoDashboard />;
 }
 

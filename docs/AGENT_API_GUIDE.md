@@ -13,7 +13,7 @@ Agents using MCP can use the local FastMCP tools instead of building HTTP reques
 
 ## Models and request fields
 
-Query `GET /v1/models` for the accepted combinations. As of 13 October 2026:
+Query `GET /v1/models` for the accepted combinations. As of 14 October 2026:
 
 | `model_id` | Modes | `duration_seconds` | `resolution` | Default `parameters` |
 | --- | --- | --- | --- | --- |
@@ -22,9 +22,9 @@ Query `GET /v1/models` for the accepted combinations. As of 13 October 2026:
 | `hunyuanvideo-1.5` | `t2v` | 5 | `480p`, `480p-portrait` | `{"inference_steps":10,"guidance_scale":6.0}` |
 | `cogvideox-1.5` | `t2v` | 5 | `480p`, `480p-portrait` | `{"inference_steps":10,"guidance_scale":6.0}` |
 
-The landscape combinations have successful worker jobs. Portrait presets are configured in source and require redeployment and a live render before relying on the hosted API. Do not infer support for another mode, duration, or resolution from the model's general capabilities. `model_id` defaults to LTX for old clients, `duration_seconds` defaults to 5, and omitted `resolution` uses the selected model's enabled preset. `prompt` is a nonblank string of at most 2,000 characters. `seed` is an optional integer from 0 to 4294967295. For Wan, HunyuanVideo, and CogVideoX, optional `parameters.inference_steps` must be an integer from 1 to 100 and `parameters.guidance_scale` a number from 0 to 20. Omitted parameter values use the table defaults. LTX accepts an empty `parameters` object only. Unknown model IDs, parameters, and unsupported combinations return HTTP 422.
+The landscape combinations have successful worker jobs. Each model's 5-second portrait preset was verified with a live render on 14 October 2026; the encoded dimensions and job IDs are in [the verification report](../reports/portrait_verification_2026-10-14.md). Longer LTX portrait durations and the 720p LTX portrait preset have not been live-rendered. Do not infer support for another mode, duration, or resolution from the model's general capabilities. `model_id` defaults to LTX for old clients, `duration_seconds` defaults to 5, and omitted `resolution` uses the selected model's enabled preset. `prompt` is a nonblank string of at most 2,000 characters. `seed` is an optional integer from 0 to 4294967295. For Wan, HunyuanVideo, and CogVideoX, optional `parameters.inference_steps` must be an integer from 1 to 100 and `parameters.guidance_scale` a number from 0 to 20. Omitted parameter values use the table defaults. LTX accepts an empty `parameters` object only. Unknown model IDs, parameters, and unsupported combinations return HTTP 422.
 
-For `i2v`, supply `input_asset_id` from this API's asset upload flow and use a base resolution. For `t2v`, omit the asset and choose a base resolution for landscape or a `-portrait` resolution for portrait. LTX text-to-video renders at 768×512 or 512×768 for `512p`, and 1280×704 or 704×1280 for `720p`, at 24 fps. LTX image-to-video follows the conditioning image's aspect at the base preset's pixel class (`512p`: 832×480 landscape, 480×832 portrait, 640×640 square; `720p`: 1280×704 landscape, 704×1280 portrait, 896×896 square) so inputs are not stretched. Its 5, 10, and 20 second requests use 121, 241, and 481 frames. Do not assume these frame counts apply to the other workers.
+For `i2v`, supply `input_asset_id` from this API's asset upload flow and use a base resolution. For `t2v`, omit the asset and choose a base resolution for landscape or a `-portrait` resolution for portrait. LTX text-to-video renders at 768×512 or 512×768 for `512p`, and 1280×704 or 704×1280 for `720p`, at 24 fps. LTX image-to-video follows the conditioning image's aspect at the base preset's pixel class (`512p`: 896×512 landscape, 512×896 portrait, 640×640 square; `720p`: 1280×704 landscape, 704×1280 portrait, 896×896 square) so inputs are not stretched. Its 5, 10, and 20 second requests use 121, 241, and 481 frames. Do not assume these frame counts apply to the other workers.
 
 ## Text-to-video
 

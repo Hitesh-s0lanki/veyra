@@ -8,8 +8,8 @@ type Context = { params: Promise<{ path: string[] }> };
 const DEFAULT_TIMEOUT_MS = 30_000;
 const CREATIVE_TIMEOUT_MS = 120_000;
 
-async function proxy(request: Request, context: Context, method: "GET" | "POST") {
-  if (method === "POST" && !sameOrigin(request)) return Response.json({ detail: "Invalid origin" }, { status: 403 });
+async function proxy(request: Request, context: Context, method: "GET" | "POST" | "PUT") {
+  if (method !== "GET" && !sameOrigin(request)) return Response.json({ detail: "Invalid origin" }, { status: 403 });
   const path = (await context.params).path;
   const target = matchVideoApiRoute(method, path);
   if (!target) return Response.json({ detail: "Route not found" }, { status: 404 });
@@ -17,12 +17,12 @@ async function proxy(request: Request, context: Context, method: "GET" | "POST")
   if (!token) return Response.json({ detail: "Sign in to use the video studio" }, { status: 401 });
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
   let body: string | undefined;
-  if (method === "POST") {
+  if (method !== "GET") {
     if (request.headers.get("content-type")?.split(";")[0] !== "application/json") {
       return Response.json({ detail: "JSON body required" }, { status: 415 });
     }
     body = await request.text();
-    if (body.length > 8192) return Response.json({ detail: "Request too large" }, { status: 413 });
+    if (body.length > (target.startsWith("/v1/concepts") ? 32768 : 8192)) return Response.json({ detail: "Request too large" }, { status: 413 });
     headers["Content-Type"] = "application/json";
     const key = request.headers.get("idempotency-key");
     if (key && !/^[A-Za-z0-9_-]{1,80}$/.test(key)) {
@@ -30,7 +30,7 @@ async function proxy(request: Request, context: Context, method: "GET" | "POST")
     }
     if (key) headers["Idempotency-Key"] = key;
   }
-  const timeoutMs = target.startsWith("/v1/creative") ? CREATIVE_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
+  const timeoutMs = target.startsWith("/v1/creative") || target.endsWith("/chat") ? CREATIVE_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
   try {
     const response = await fetch(`${videoApiBase()}${target}`, {
       method, headers, body, cache: "no-store", signal: AbortSignal.timeout(timeoutMs),
@@ -46,3 +46,4 @@ async function proxy(request: Request, context: Context, method: "GET" | "POST")
 
 export async function GET(request: Request, context: Context) { return proxy(request, context, "GET"); }
 export async function POST(request: Request, context: Context) { return proxy(request, context, "POST"); }
+export async function PUT(request: Request, context: Context) { return proxy(request, context, "PUT"); }
