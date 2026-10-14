@@ -1,5 +1,6 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import { shadcn } from "@clerk/ui/themes";
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Manrope, Space_Grotesk, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ClerkProvider appearance={{ theme: shadcn }} signUpForceRedirectUrl="/app" signInForceRedirectUrl="/app">
           {children}
         </ClerkProvider>
+        <Analytics />
       </body>
     </html>
   );
