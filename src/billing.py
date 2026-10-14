@@ -53,6 +53,34 @@ def ensure_wallet(conn, user_id: str) -> None:
             VALUES (%s,%s,'starter_grant',%s,%s)""",
             (user_id, f"starter:{user_id}", amount, amount),
         )
+    elif not row and amount:
+        # Keep any credits already spent and grant only the increase in the
+        # signup amount. The wallet lock makes concurrent requests grant once.
+        wallet = conn.execute(
+            "SELECT balance_cents FROM credit_wallets WHERE user_id=%s FOR UPDATE",
+            (user_id,),
+        ).fetchone()
+        granted = conn.execute(
+            """SELECT COALESCE(SUM(amount_cents), 0) AS amount_cents
+            FROM credit_ledger WHERE user_id=%s AND kind='starter_grant'""",
+            (user_id,),
+        ).fetchone()["amount_cents"]
+        increase = max(0, amount - granted)
+        if increase:
+            operation_id = f"starter-upgrade:{amount}:{user_id}"
+            after = wallet["balance_cents"] + increase
+            clerk_credits.adjust(user_id, increase, "increase", operation_id,
+                                 "Video app starter credit increase")
+            conn.execute(
+                "UPDATE credit_wallets SET balance_cents=%s WHERE user_id=%s",
+                (after, user_id),
+            )
+            conn.execute(
+                """INSERT INTO credit_ledger
+                (user_id,operation_id,kind,amount_cents,balance_after_cents)
+                VALUES (%s,%s,'starter_grant',%s,%s)""",
+                (user_id, operation_id, increase, after),
+            )
 
 
 def balance(conn, user_id: str) -> dict:

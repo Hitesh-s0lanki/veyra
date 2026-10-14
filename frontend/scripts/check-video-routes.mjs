@@ -20,6 +20,7 @@ const DEDICATED_ROUTES = new Set(["assets/upload"]);
 
 const JOB_ID = `vid_${"a".repeat(32)}`;
 const ASSET_ID = `asset_${"a".repeat(32)}`;
+const CONCEPT_ID = `con_${"a".repeat(32)}`;
 
 const METHOD_PROBES = [
   ["GET", ["models"], true],
@@ -37,12 +38,20 @@ const METHOD_PROBES = [
   ["GET", ["creative", "pricing"], true],
   ["POST", ["creative", "prompt"], true],
   ["POST", ["creative", "images"], true],
+  ["GET", ["concepts"], true],
+  ["POST", ["concepts"], true],
+  ["GET", ["concepts", CONCEPT_ID], true],
+  ["POST", ["concepts", CONCEPT_ID, "chat"], true],
+  ["PUT", ["concepts", CONCEPT_ID, "plan"], true],
+  ["POST", ["concepts", CONCEPT_ID, "generate"], true],
+  ["POST", ["concepts", CONCEPT_ID, "retry"], true],
   // Negative probes: unknown paths and wrong methods must stay unmapped.
   ["GET", ["creative", "prompt"], false],
   ["POST", ["creative", "pricing"], false],
   ["GET", ["videos", "../escape"], false],
   ["GET", ["videos", "vid_not-an-id"], false],
   ["POST", ["models"], false],
+  ["POST", ["concepts", CONCEPT_ID, "plan"], false],
   ["GET", ["unknown"], false],
 ];
 
@@ -81,7 +90,7 @@ function extractUiPaths() {
       const raw = match[1];
       // The proxy receives only the segments after /api/video/.
       const segments = raw.split("/").filter(Boolean).slice(2).map((segment) => (segment.startsWith("${") ? "*" : segment));
-      if (DEDICATED_ROUTES.has(segments.join("/"))) continue;
+      if (DEDICATED_ROUTES.has(segments.join("/")) || raw === "/api/video/concepts${path}") continue;
       found.set(segments.join("/"), { file, segments, raw });
     }
   }
@@ -99,13 +108,13 @@ function covers(methods, segments, matchVideoApiRoute) {
 function coversWithWildcard(segments, matchVideoApiRoute) {
   const candidates = segments.map((segment) => {
     if (segment !== "*") return [segment];
-    return [JOB_ID, ASSET_ID];
+    return [JOB_ID, ASSET_ID, CONCEPT_ID];
   });
   const expanded = candidates.reduce((accumulator, options) => (
     accumulator.flatMap((prefix) => options.map((option) => [...prefix, option]))
   ), [[]]);
   for (const candidate of expanded) {
-    const target = covers(["GET", "POST"], candidate, matchVideoApiRoute);
+    const target = covers(["GET", "POST", "PUT"], candidate, matchVideoApiRoute);
     if (target) return target;
   }
   return null;

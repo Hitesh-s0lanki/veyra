@@ -9,7 +9,7 @@ from PIL import Image
 from pydantic import ValidationError
 
 from src import api as api_module, storage
-from src.config import DURATION_FRAMES
+from src.config import DURATION_FRAMES, I2V_DIMS
 from src.config import MODEL_PROFILES
 
 
@@ -75,6 +75,13 @@ def test_portrait_text_to_video_presets(model_id, base_resolution):
             model_id=model_id, mode="i2v", prompt="A lake",
             input_asset_id="asset_123", resolution=portrait,
         )
+
+
+def test_ltx_image_to_video_dimensions_match_two_stage_grid():
+    for orientations in I2V_DIMS.values():
+        for width, height in orientations.values():
+            assert width % 64 == 0
+            assert height % 64 == 0
 
 
 def test_model_specific_settings_are_validated():

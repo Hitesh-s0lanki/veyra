@@ -21,7 +21,7 @@ PRESETS = {
 # conditioning image's aspect at that preset's pixel class via I2V_DIMS
 # (see modal_app.py), so inputs are never stretched.
 I2V_DIMS = {
-    "512p": {"landscape": (832, 480), "portrait": (480, 832), "square": (640, 640)},
+    "512p": {"landscape": (896, 512), "portrait": (512, 896), "square": (640, 640)},
     "720p": {"landscape": (1280, 704), "portrait": (704, 1280), "square": (896, 896)},
 }
 # LTX's temporal grid is 8n+1 frames. These render approximately 5, 10,
@@ -83,7 +83,7 @@ VIDEO_BASE_PRICES_CENTS = {
     "cogvideox-1.5": {5: 55},
 }
 CREATIVE_PRICES_CENTS = {"prompt": 2, "image": 20}
-STARTER_CREDIT_CENTS = 200
+STARTER_CREDIT_CENTS = 500
 PRICING_VERSION = "2026-10-13.1"
 
 

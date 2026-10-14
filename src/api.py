@@ -19,7 +19,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 import jwt
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src import billing, cost, db, oauth, storage, creative_api, submissions
+from src import billing, cost, db, oauth, storage, creative_api, submissions, concepts
 from src.config import DEFAULT_DURATION_SECONDS, DEFAULT_MODEL_ID, MAX_ACTIVE_JOBS, MODEL_PROFILES, VIDEO_URL_TTL_SECONDS
 
 IDENTIFIER = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
@@ -86,13 +86,20 @@ class VideoRequest(BaseModel):
 async def lifespan(_app):
     db.initialize()
     creative_api.initialize()
+    concepts.initialize()
     task = asyncio.create_task(_reconcile_loop())
+    concept_task = asyncio.create_task(_concept_loop())
     try:
         yield
     finally:
         task.cancel()
+        concept_task.cancel()
         try:
             await task
+        except asyncio.CancelledError:
+            pass
+        try:
+            await concept_task
         except asyncio.CancelledError:
             pass
 
@@ -108,6 +115,16 @@ async def _reconcile_loop():
             import logging
             logging.getLogger(__name__).exception("Video job reconciliation failed")
         await asyncio.sleep(300)
+
+
+async def _concept_loop():
+    while True:
+        try:
+            await asyncio.to_thread(concepts.tick)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Concept orchestration failed")
+        await asyncio.sleep(5)
 
 
 api = FastAPI(title="Video Generation API", version="2.0", lifespan=lifespan)
@@ -144,6 +161,7 @@ def current_user(authorization: str = Header(default="")) -> str:
 
 
 api.include_router(creative_api.create_router(current_user))
+api.include_router(concepts.create_router(current_user))
 api.include_router(submissions.create_router(current_user))
 
 
@@ -355,7 +373,8 @@ def submit_video(
 def list_videos(user_id: str = Depends(current_user)):
     with db.connection() as conn:
         rows = conn.execute(
-            """SELECT * FROM video_jobs WHERE user_id=%s
+            """SELECT * FROM video_jobs AS job WHERE user_id=%s
+            AND NOT EXISTS (SELECT 1 FROM concept_scenes AS scene WHERE scene.job_id=job.id)
             ORDER BY created_at DESC LIMIT 100""", (user_id,),
         ).fetchall()
     return {"videos": [_public_job(row) for row in rows]}

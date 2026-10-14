@@ -5,18 +5,20 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, ImagePlus, Plus, WalletCards, X } from "lucide-react";
+import { ArrowUpRight, Film, ImagePlus, Plus, WalletCards, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
+import { ConceptWorkspace } from "@/components/concept-workspace";
+import { ConceptVideoWorkspace } from "@/components/concept-video-workspace";
 
 type Profile = { model_id: string; modes: string[]; duration_seconds: number[]; resolutions: string[]; parameter_defaults: Record<string, number> };
 type Wallet = { balance_cents: number };
 type Job = { job_id: string; model_id: string; status: string; mode?: string; prompt?: string; duration_seconds?: number; resolution?: string; created_at?: string; price_cents?: number; error_code?: string };
+type ConceptSummary = { id: string; title: string; target_seconds: number; aspect: string; status: string };
 type VideoInput = { model_id: string; mode: "t2v" | "i2v"; prompt: string; duration_seconds: number; resolution: string; parameters: Record<string, number>; input_asset_id?: string; seed?: number };
 type Aspect = "landscape" | "portrait" | "square";
 type PromptTemplate = { slug: string; title: string; style: string; prompt: string };
@@ -95,6 +97,22 @@ function HistoryButton({ job, selected, onSelect }: { job: Job; selected: boolea
   </SidebarMenuButton></SidebarMenuItem>;
 }
 
+function ChatHistoryButton({ concept, selected, onSelect }: { concept: ConceptSummary; selected: boolean; onSelect: () => boolean }) {
+  const { setOpenMobile } = useSidebar();
+  return <SidebarMenuItem><SidebarMenuButton type="button" onClick={() => { if (onSelect()) setOpenMobile(false); }} isActive={selected} className="h-auto min-h-11 flex-col items-stretch gap-1 px-3 py-2.5">
+    <span className="flex items-center gap-2"><Film className="size-3.5 shrink-0 text-primary" aria-hidden="true" /><span className="truncate text-sm font-medium" title={concept.title}>{concept.title || "Untitled concept"}</span></span>
+    <span className="pl-5.5 text-xs text-muted-foreground">{concept.target_seconds}s · {concept.status}</span>
+  </SidebarMenuButton></SidebarMenuItem>;
+}
+
+function ConceptVideoHistoryButton({ concept, selected, onSelect }: { concept: ConceptSummary; selected: boolean; onSelect: () => void }) {
+  const { setOpenMobile } = useSidebar();
+  return <SidebarMenuItem><SidebarMenuButton type="button" onClick={() => { onSelect(); setOpenMobile(false); }} isActive={selected} className="h-auto min-h-11 flex-col items-stretch gap-1 px-3 py-2.5">
+    <span className="flex items-center gap-2"><Film className="size-3.5 shrink-0 text-primary" aria-hidden="true" /><span className="truncate text-sm font-medium" title={concept.title}>{concept.title || "Untitled video"}</span></span>
+    <span className="pl-5.5 text-xs text-muted-foreground">{concept.target_seconds}s · {concept.status === "succeeded" ? "Ready" : concept.status === "assembling" ? "Finishing" : concept.status === "generating" ? "Generating" : "Needs attention"}</span>
+  </SidebarMenuButton></SidebarMenuItem>;
+}
+
 function NewVideoButton({ onClick }: { onClick: () => void }) {
   const { setOpenMobile } = useSidebar();
   return <Button type="button" className="w-full justify-start" onClick={() => { onClick(); setOpenMobile(false); }}><Plus aria-hidden="true" /> New video</Button>;
@@ -118,7 +136,10 @@ export function VideoDashboard() {
   const [assetId, setAssetId] = useState("");
   const [uploadedAspect, setUploadedAspect] = useState<Aspect | null>(null);
   const sourceInput = useRef<HTMLInputElement>(null);
+  const videosTab = useRef<HTMLButtonElement>(null);
+  const chatsTab = useRef<HTMLButtonElement>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [concepts, setConcepts] = useState<ConceptSummary[]>([]);
   const [preview, setPreview] = useState<{ jobId: string; url: string } | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [apiReady, setApiReady] = useState(false);
@@ -128,6 +149,7 @@ export function VideoDashboard() {
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [creditsNotice, setCreditsNotice] = useState(false);
+  const [historyTabOverride, setHistoryTabOverride] = useState<{ section: "videos" | "chats"; tab: "videos" | "chats" } | null>(null);
   const [completionToasts, setCompletionToasts] = useState<Array<{ jobId: string; name: string }>>([]);
   const observedStatuses = useRef<Map<string, string> | null>(null);
   const notifiedCompletions = useRef(new Set<string>());
@@ -135,15 +157,44 @@ export function VideoDashboard() {
 
   const profile = useMemo(() => models.find((item) => item.model_id === modelId) ?? models[0], [models, modelId]);
   const selectedJobId = searchParams.get("video");
+  const selectedVideoConceptId = pathname === "/app" ? searchParams.get("concept") : null;
+  const selectedConceptId = searchParams.get("id");
+  const conceptMode = (pathname === "/chat" || searchParams.get("mode") === "concept") && !selectedJobId && !selectedVideoConceptId;
+  const inChat = pathname === "/chat";
+  const inFocusedWorkspace = inChat || !!selectedVideoConceptId;
+  const historySection = conceptMode ? "chats" : "videos";
+  const historyTab = historyTabOverride?.section === historySection ? historyTabOverride.tab : historySection;
+  const selectHistoryTab = (tab: "videos" | "chats") => setHistoryTabOverride({ section: historySection, tab });
   const selectedJob = jobs.find((job) => job.job_id === selectedJobId);
   const mode: "t2v" | "i2v" = sourceFile ? "i2v" : "t2v";
   const invalidate = () => { pendingSubmission.current = null; };
   function showVideo(id: string | null) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (id) params.set("video", id); else params.delete("video");
-    const query = params.toString();
-    router.push(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+    router.push(id ? `/app?video=${encodeURIComponent(id)}` : "/app", { scroll: false });
   }
+
+  function showConceptVideo(id: string) {
+    router.push(`/app?concept=${encodeURIComponent(id)}`, { scroll: false });
+  }
+
+  function showConcept() {
+    router.push("/app?mode=concept", { scroll: false });
+  }
+
+  function showChat(id: string) {
+    setHistoryTabOverride({ section: "chats", tab: "chats" });
+    if (conceptMode) return window.dispatchEvent(new CustomEvent("concept-select", { detail: id, cancelable: true }));
+    router.push(`/chat?id=${encodeURIComponent(id)}`, { scroll: false });
+    return true;
+  }
+
+  const loadConcepts = useCallback(async () => {
+    try {
+      const data = await request<{ concepts: ConceptSummary[] }>("/api/video/concepts");
+      setConcepts(data.concepts);
+    } catch {
+      // Video generation remains usable if concept history is unavailable.
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     const [jobsResult, walletResult] = await Promise.allSettled([
@@ -188,6 +239,17 @@ export function VideoDashboard() {
     queueMicrotask(() => { if (active) void loadWorkspace(); });
     return () => { active = false; };
   }, [isSignedIn, loadWorkspace]);
+  useEffect(() => {
+    if (!isSignedIn) return;
+    queueMicrotask(() => { void loadConcepts(); });
+    window.addEventListener("concepts-changed", loadConcepts);
+    return () => window.removeEventListener("concepts-changed", loadConcepts);
+  }, [isSignedIn, loadConcepts]);
+  useEffect(() => {
+    if (!isSignedIn || !concepts.some((item) => ["generating", "assembling"].includes(item.status))) return;
+    const timer = setInterval(() => { void loadConcepts(); }, 5000);
+    return () => clearInterval(timer);
+  }, [isSignedIn, concepts, loadConcepts]);
   useEffect(() => {
     if (!apiReady || !jobs.some((job) => ["queued", "running"].includes(job.status))) return;
     const timer = setInterval(() => { void refresh(); }, 5000);
@@ -315,16 +377,55 @@ export function VideoDashboard() {
     finally { setBusy(""); }
   }
 
-  return <SidebarProvider>
+  return <SidebarProvider className={inFocusedWorkspace ? "h-dvh min-h-0 overflow-hidden" : undefined}>
     <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border">
       <SidebarHeader className="gap-4 border-b border-sidebar-border p-4">
         <Link href="/" className="flex items-center gap-2.5 rounded-md text-lg font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-2"><Image src="/veyra-mark.png" alt="" width={446} height={445} priority className="size-8 shrink-0 object-contain" /> <span>Veyra Studio</span></Link>
         <NewVideoButton onClick={newVideo} />
       </SidebarHeader>
-      <SidebarContent><SidebarGroup className="min-h-0 flex-1"><SidebarGroupLabel>Videos</SidebarGroupLabel><ScrollArea className="min-h-0 flex-1"><SidebarMenu className="px-1 pb-4">
-        {jobs.map((job) => <HistoryButton key={job.job_id} job={job} selected={selectedJobId === job.job_id} onSelect={() => showVideo(job.job_id)} />)}
-        {!jobs.length && <p className="px-2 py-4 text-sm text-muted-foreground">Your generated videos will appear here.</p>}
-      </SidebarMenu></ScrollArea></SidebarGroup></SidebarContent>
+      <SidebarContent>
+        <SidebarGroup className="gap-3 px-3 pt-4">
+          <div role="tablist" aria-label="History" className="grid grid-cols-2 rounded-xl bg-sidebar-accent/60 p-0.5">
+            {(["videos", "chats"] as const).map((tab) => (
+              <button
+                key={tab}
+                ref={tab === "videos" ? videosTab : chatsTab}
+                id={`sidebar-${tab}-tab`}
+                type="button"
+                role="tab"
+                aria-selected={historyTab === tab}
+                aria-controls="sidebar-history-panel"
+                tabIndex={historyTab === tab ? 0 : -1}
+                onClick={() => selectHistoryTab(tab)}
+                onKeyDown={(event) => {
+                  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                  event.preventDefault();
+                  const next = event.key === "Home" ? "videos" : event.key === "End" ? "chats" : tab === "videos" ? "chats" : "videos";
+                  selectHistoryTab(next);
+                  (next === "videos" ? videosTab : chatsTab).current?.focus();
+                }}
+                className={`min-h-9 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${historyTab === tab ? "bg-background text-sidebar-foreground shadow-sm" : "text-muted-foreground hover:text-sidebar-foreground"}`}
+              >
+                {tab === "videos" ? "Videos" : "Chats"}
+              </button>
+            ))}
+          </div>
+          <div id="sidebar-history-panel" role="tabpanel" aria-labelledby={`sidebar-${historyTab}-tab`}>
+            <SidebarMenu>
+              {historyTab === "videos" ? (
+                jobs.length || concepts.some((item) => ["generating", "assembling", "succeeded", "failed"].includes(item.status)) ? <>
+                  {concepts.filter((item) => ["generating", "assembling", "succeeded", "failed"].includes(item.status)).map((concept) => <ConceptVideoHistoryButton key={concept.id} concept={concept} selected={selectedVideoConceptId === concept.id} onSelect={() => showConceptVideo(concept.id)} />)}
+                  {jobs.map((job) => <HistoryButton key={job.job_id} job={job} selected={selectedJobId === job.job_id} onSelect={() => showVideo(job.job_id)} />)}
+                </>
+                  : <li className="px-2 py-4 text-sm text-muted-foreground">Your generated videos will appear here.</li>
+              ) : (
+                concepts.length ? concepts.map((concept) => <ChatHistoryButton key={concept.id} concept={concept} selected={inChat && selectedConceptId === concept.id} onSelect={() => showChat(concept.id)} />)
+                  : <li className="px-2 py-3 text-sm text-muted-foreground">Concept chats will appear here.</li>
+              )}
+            </SidebarMenu>
+          </div>
+        </SidebarGroup>
+      </SidebarContent>
       <SidebarFooter className="gap-0 border-t border-sidebar-border p-0">
         <div className="px-4 py-4">
           <div className="flex items-start justify-between gap-3">
@@ -340,9 +441,10 @@ export function VideoDashboard() {
         <div className="flex items-center justify-between gap-3 border-t border-sidebar-border px-4 py-3"><span className="text-sm text-muted-foreground">Your account</span><UserButton /></div>
       </SidebarFooter>
     </Sidebar>
-    <SidebarInset className="min-w-0 bg-[#fafaf9]">
-      <div className="flex h-14 items-center gap-3 border-b bg-background px-4 sm:px-8"><SidebarTrigger aria-label="Toggle video history" /><span className="truncate text-sm font-medium text-muted-foreground">{selectedJob ? title(selectedJob) : "New video"}</span></div>
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-8 sm:px-8 sm:py-14">
+    <SidebarInset className={`min-w-0 bg-[#fafaf9] ${inFocusedWorkspace ? "min-h-0 overflow-hidden" : ""}`}>
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4 sm:px-8"><SidebarTrigger aria-label="Toggle sidebar" /><span className="truncate text-sm font-medium text-muted-foreground">{conceptMode ? inChat ? concepts.find((item) => item.id === selectedConceptId)?.title || "Concept chat" : "Up to 60 seconds" : selectedVideoConceptId ? concepts.find((item) => item.id === selectedVideoConceptId)?.title || "Your video" : selectedJob ? title(selectedJob) : "New video"}</span></div>
+      {!inChat && !selectedVideoConceptId && !selectedJobId && <div className="flex justify-center px-4 pb-5 pt-5 sm:px-8" aria-label="Video creation mode"><div className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-2xl bg-[#f3f3f3] p-1 dark:bg-muted"><button type="button" aria-pressed={!conceptMode} onClick={() => showVideo(null)} className={`min-h-8 shrink-0 rounded-xl px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${!conceptMode ? "bg-background text-foreground shadow-sm ring-1 ring-black/5" : "text-muted-foreground hover:text-foreground"}`}>Up to 20 seconds</button><button type="button" aria-pressed={conceptMode} onClick={showConcept} className={`inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-xl px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${conceptMode ? "bg-background text-foreground shadow-sm ring-1 ring-black/5" : "text-muted-foreground hover:text-foreground"}`}>Up to 60 seconds <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none text-amber-800 dark:bg-amber-900 dark:text-amber-200">Alpha</span></button></div></div>}
+      {conceptMode ? <ConceptWorkspace /> : selectedVideoConceptId ? <ConceptVideoWorkspace id={selectedVideoConceptId} /> : <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-8 sm:px-8 sm:py-14">
         {selectedJob ? <section className="space-y-6" aria-labelledby="selected-video-title">
           <div><p className="text-sm text-muted-foreground">Your video</p><h1 id="selected-video-title" className="mt-2 font-heading text-3xl font-semibold tracking-tight">{title(selectedJob)}</h1><div className="mt-3 flex flex-wrap items-center gap-3"><VideoStatus status={selectedJob.status} />{selectedJob.created_at && <span className="text-sm text-muted-foreground">{new Date(selectedJob.created_at).toLocaleString()}</span>}</div></div>
           <Card><CardHeader><CardTitle>Generation details</CardTitle><CardDescription>{names[selectedJob.model_id] ?? selectedJob.model_id} · {selectedJob.mode === "i2v" ? "Image to video" : "Text to video"}</CardDescription></CardHeader><CardContent className="space-y-5">
@@ -428,7 +530,7 @@ export function VideoDashboard() {
             </dl>
           </section>
         </section>}
-      </div>
+      </div>}
     </SidebarInset>
     {completionToast && <div role="status" aria-live="polite" className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-sm rounded-xl border border-emerald-200 bg-background p-4 shadow-lg sm:bottom-6 sm:right-6">
       <div className="flex items-start justify-between gap-3">
