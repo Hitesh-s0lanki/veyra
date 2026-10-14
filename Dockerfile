@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Install system deps (optional – drop build-essential if not needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    build-essential ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps

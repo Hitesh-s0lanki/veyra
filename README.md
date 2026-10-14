@@ -2,12 +2,27 @@
 
 The FastAPI service accepts a video request, records a private job in PostgreSQL, and dispatches it to one of four already deployed Modal GPU workers. The API can run on your own server; the main API does not need a Modal deployment. Workers scale to zero when idle. Input images and output MP4s stay in a private S3 bucket.
 
+## Interface preview
+
+The Veyra frontend lets users explore example clips, create videos from text or images, and connect an agent through the hosted MCP server. Select a screenshot to view it at full size.
+
+[![Veyra landing page with the video showcase](images/home.png)](images/home.png)
+
+| Explore example videos | Connect an agent |
+| --- | --- |
+| [![Gallery of example videos in different styles](images/explore.png)](images/explore.png) | [![Hosted MCP setup page with connection instructions](images/mcp.png)](images/mcp.png) |
+
+| Create a video | Review a completed video |
+| --- | --- |
+| [![Video composer with prompt, model, quality, and aspect ratio controls](images/app.png)](images/app.png) | [![Completed video page with playback and generation details](images/app-video.png)](images/app-video.png) |
+
 ## Project layout
 
 | Path | Purpose |
 | --- | --- |
 | `src/` | FastAPI service, generation, creator verification, storage, billing, and MCP implementation |
 | `frontend/` | Next.js website and its static assets |
+| `images/` | Screenshots used in this README |
 | `docs/` | API, authentication, and integration guides |
 | `scripts/` | One-off generation and verification utilities |
 | `tests/` | Python API and MCP tests |
@@ -20,7 +35,7 @@ The FastAPI service accepts a video request, records a private job in PostgreSQL
 
 ## Available models
 
-`GET /v1/models` returns the configured settings. The LTX landscape settings follow the existing API; successful jobs have covered 5-second T2V, 10-second I2V, and 20-second T2V. The other three landscape profiles match successful jobs observed in the shared database on 13 October 2026. Portrait presets require redeployment and a live worker render before relying on the hosted API.
+`GET /v1/models` returns the configured settings. The LTX landscape settings follow the existing API; successful jobs have covered 5-second T2V, 10-second I2V, and 20-second T2V. The other three landscape profiles match successful jobs observed in the shared database on 13 October 2026. The portrait workers were redeployed and each model produced a 5-second portrait clip with the configured dimensions on 14 October 2026; see [the verification report](reports/portrait_verification_2026-10-14.md).
 
 | `model_id` | Modal app | Modes | Seconds | Resolution | Default `parameters` |
 | --- | --- | --- | --- | --- | --- |
@@ -36,6 +51,8 @@ The model app names and accepted settings live in `src/config.py`. The API calls
 ## Run the API outside Modal
 
 Use Python 3.12 or 3.13. Configure `.env` privately using `.env.example` as a starting point. The API host needs PostgreSQL and S3 credentials, `CLERK_OAUTH_ISSUER` and `CLERK_WEB_ORIGIN` for the web dashboard, and a Modal token with permission to call the four deployed worker apps. Set `API_TOKENS_JSON` for MCP clients or the Clerk OAuth settings for OAuth integrations. Modal SDK credentials can come from an active local `modal setup` profile or the `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` environment variables on a server. Do not expose these credentials to API clients.
+
+To upload every entry from the root `.env` to this repository's GitHub Actions secrets, run `scripts/push_backend_secrets.sh` after `gh auth login`. Use `--repo OWNER/REPO` or `--env-file PATH` to override the defaults. GitHub Actions secrets are available to workflows only when referenced explicitly; uploading them does not configure the API host or Modal workers.
 
 ```powershell
 uv sync --extra test --extra mcp
