@@ -23,6 +23,5 @@ COPY . .
 ENV PORT=8000
 EXPOSE 8000
 
-# Start FastAPI with uvicorn
-# module:variable -> src/api.py : api
-CMD ["sh", "-c", "uvicorn src.api:api --host 0.0.0.0 --port ${PORT}"]
+# Start the API and OAuth-protected MCP endpoint on the same origin.
+CMD ["sh", "-c", "uvicorn src.hosted_app:app --host 0.0.0.0 --port ${PORT}"]
